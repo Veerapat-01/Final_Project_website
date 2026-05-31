@@ -6,7 +6,7 @@ export async function POST(request) {
       "SELECT * FROM users WHERE staff_email = ?",
       [email],
     );
-    return Response.json({ status: 200, data: rows });
+    return Response.json(rows);
   } catch (error) {
     console.error("Database query error:", error);
   }
