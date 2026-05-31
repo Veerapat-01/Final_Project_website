@@ -390,12 +390,15 @@ export default function Page() {
         <div className="hero-content">
           <div className="badge">
             <div className="badge-dot" />
-            <span className="badge-text">SD-WAN AUTOMATED REPLACING CENTRE</span>
+            <span className="badge-text">SD-WAN AUTOMATED RECOVERY CENTRE</span>
           </div>
 
-          <h1 className="hero-title">
+          {/* <h1 className="hero-title">
             Replace Failed<br />
             Routers <span>Automatically</span>
+          </h1> */}
+           <h1 className="hero-title">
+            AIT <span>ARC</span>
           </h1>
 
           <p className="hero-desc">

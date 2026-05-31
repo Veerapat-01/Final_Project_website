@@ -3,3 +3,4 @@ node_modules/
 *.dmg
 .next/
 .DS_Store
+.env
