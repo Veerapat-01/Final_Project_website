@@ -1,18 +1,44 @@
 "use client";
 
 import { useState } from "react";
+import axios from "axios";
+import { useRouter } from "next/navigation";
+
 
 export default function Page() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const router = useRouter();
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setTimeout(() => setLoading(false), 1800);
-  };
+    try {
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_URL}/api/POST/getlogin`,
+        {
+          "email": email,
+          "password": password
+        }
+      );
+      if (response.status === 200) {
+        const data = response.data[0];
+        if (data.staff_email === email && data.staff_password === password) {
+          alert("Login successful!");
+          router.push("/dashboard");
+
+        } else {
+          alert("Invalid email or password.");
+        }
+      } else {
+        alert("Login failed: " + response.data.error);
+      }
+    } catch (error) {
+    }
+
+
+  }
 
   return (
     <div className="min-h-screen flex" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -486,7 +512,7 @@ export default function Page() {
                 )}
               </button>
             </div>
-            <a className="forgot-link">Forgot password?</a>
+            {/* <a className="forgot-link">Forgot password?</a> */}
           </div>
 
           <button className="submit-btn" type="submit" disabled={loading}>
@@ -498,19 +524,19 @@ export default function Page() {
           </button>
         </form>
 
-        <div className="divider">
+        {/* <div className="divider">
           <div className="divider-line" />
           <span className="divider-text">or continue with</span>
           <div className="divider-line" />
-        </div>
+        </div> */}
 
-        <button className="sso-btn">
+        {/* <button className="sso-btn">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3d4a5c" strokeWidth="1.8" strokeLinecap="round">
             <rect x="3" y="11" width="18" height="11" rx="2" />
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
           Sign in with SSO
-        </button>
+        </button> */}
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ export async function POST(request) {
     const { email } = await request.json();
 
     const [rows] = await pool.query(
-      "SELECT * FROM users WHERE staff_email = ?",
+      "SELECT * FROM users WHERE staff_email = ? ",
       [email],
     );
 
