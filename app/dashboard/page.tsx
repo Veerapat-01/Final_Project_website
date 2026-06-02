@@ -158,11 +158,6 @@ export default function DashboardPage() {
     password: string;
   }) => {
     try {
-      console.log("Connecting with credentials:", {
-        ip: credentials.ip,
-        username: credentials.username,
-      });
-
       const authenResponse = await axios.post(
         `${process.env.NEXT_PUBLIC_URL}/api/POST/authenVmanage`,
         {
@@ -172,8 +167,6 @@ export default function DashboardPage() {
         },
       );
 
-      console.log("Authen response:", authenResponse.data);
-
       const deviceResponse = await axios.post(
         `${process.env.NEXT_PUBLIC_URL}/api/POST/deviceVmanage`,
         {
@@ -182,16 +175,11 @@ export default function DashboardPage() {
         },
       );
 
-      console.log("Device response:", deviceResponse.data);
-
       if (deviceResponse.status === 200) {
-        // console.log("Device response:", deviceResponse.data);
         setShowModal(false);
         setIsConnected(true);
 
         const data = deviceResponse.data.data.data;
-
-        console.log("Raw device data:", data);
 
         const deviceIds = data.map(
           (device: { deviceId: any }) => device.deviceId,
@@ -211,82 +199,75 @@ export default function DashboardPage() {
         const status = data.map((device: { status: any }) => device.status);
         const uuid = data.map((device: { uuid: any }) => device.uuid);
 
-        console.log("Device IDs:", deviceIds);
-        console.log("System IPs:", systemip);
-        console.log("Hostnames:", hostnames);
-        console.log("Site IDs:", siteIds);
-        console.log("Reachability:", reachability);
-        console.log("Status:", status);
-        console.log("UUIDs:", uuid);
-
-        // console.log(deviceIds[0])
-        const ge01Ips = [];
-        const ge02Ips = [];
+        const ge01Ips: (string | null)[] = [];
+        const ge02Ips: (string | null)[] = [];
+        const responseInterfaces = await axios.post(
+          `${process.env.NEXT_PUBLIC_URL}/api/POST/getInterfaces`,
+          {
+            ip: credentials.ip,
+            deviceId: deviceIds[100],
+            cookie: authenResponse.data.cookie,
+          },
+        );
 
         for (let i = 0; i < deviceIds.length; i++) {
-          console.log(
-            `Fetching interfaces for device ${i + 1}/${deviceIds.length}`,
-            {
-              deviceId: deviceIds[i],
-            },
-          );
+          try {
+            const responseInterfaces = await axios.post(
+              `${process.env.NEXT_PUBLIC_URL}/api/POST/getInterfaces`,
+              {
+                ip: credentials.ip,
+                deviceId: deviceIds[i],
+                cookie: authenResponse.data.cookie,
+              },
+            );
 
-          const responseInterfaces = await axios.post(
-            `${process.env.NEXT_PUBLIC_URL}/api/POST/getInterfaces`,
-            {
-              ip: credentials.ip,
-              deviceId: deviceIds[i],
-              cookie: authenResponse.data.cookie,
-            },
-          );
+            const interfaces = responseInterfaces.data.data.data;
 
-          console.log(
-            `Interfaces response for device ${deviceIds[i]}:`,
-            responseInterfaces.data,
-          );
+            const ge01 =
+              interfaces.find(
+                (int: any) =>
+                  int["af-type"] === "ipv4" &&
+                  (int.ifname === "ge0/1" || int.ifname === "eth1"),
+              ) ?? null;
 
-          const int_data = responseInterfaces.data.data.data;
+            const ge02 =
+              interfaces.find(
+                (int: any) =>
+                  int["af-type"] === "ipv4" &&
+                  (int.ifname === "ge0/2" || int.ifname === "eth2"),
+              ) ?? null;
 
-          console.log(`Interface data for ${deviceIds[i]}:`, int_data);
+            ge01Ips.push(ge01?.["ip-address"] ?? null);
+            ge02Ips.push(ge02?.["ip-address"] ?? null);
 
-          const ge01 = int_data.find(
-            (int: { [x: string]: string; ifname: string }) =>
-              int.ifname === "ge0/1" && int["af-type"] === "ipv4",
-          );
+            console.log(
+              `Device ${i} (${deviceIds[i]})`,
+              "ge0/1:",
+              ge01?.["ip-address"] ?? null,
+              "ge0/2:",
+              ge02?.["ip-address"] ?? null,
+            );
+          } catch (error) {
+            console.error(
+              `Device ${i} (${deviceIds[i]}) getInterfaces failed`,
+              error,
+            );
 
-          const ge02 = int_data.find(
-            (int: { [x: string]: string; ifname: string }) =>
-              int.ifname === "ge0/2" && int["af-type"] === "ipv4",
-          );
-
-          console.log(`ge0/1 for ${deviceIds[i]}:`, ge01);
-          console.log(`ge0/2 for ${deviceIds[i]}:`, ge02);
-
-          ge01Ips.push(ge01?.["ip-address"]);
-          ge02Ips.push(ge02?.["ip-address"]);
-
-          console.log("Current ge01Ips:", ge01Ips);
-          console.log("Current ge02Ips:", ge02Ips);
+            ge01Ips.push(null);
+            ge02Ips.push(null);
+          }
         }
 
-        console.log("Final ge01Ips:", ge01Ips);
-        console.log("Final ge02Ips:", ge02Ips);
+        console.log("ge0/1 IP Array:", ge01Ips);
+        console.log("ge0/2 IP Array:", ge02Ips);
 
-        // console.log("Extracted Device IDs:", deviceIds);
-        // console.log("Extracted System IPs:", systemip);
-        // console.log("Extracted Hostnames:", hostnames);
-        // console.log("Extracted Reachability:", reachability);
-        // console.log("Extracted Status:", status);
-        // console.log("Extracted Site IDs:", siteIds);
-        // console.log("Extracted UUIDs:", uuid);
+        // console.log("ge0/1 IP Array:", ge01Ips);
+        // console.log("ge0/2 IP Array:", ge02Ips);
       }
       // Display Popup Error
     } catch (error) {
       console.error("Error occurred while connecting to vManage:", error);
     }
-
-    setShowModal(false);
-    setIsConnected(true);
   };
 
   return (
