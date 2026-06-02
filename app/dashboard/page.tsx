@@ -14,6 +14,7 @@ import { TimeTracker } from "@/components/dashboard/time-tracker"
 import { VManageConnectionModal } from "@/components/dashboard/vmanage-connection-modal"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import axios from "axios"
 
 /* ─────────────────────────── skeleton helper ─────────────────────────── */
 
@@ -150,13 +151,61 @@ export default function DashboardPage() {
     return () => clearTimeout(timer)
   }, [])
 
-  const handleConnect = (credentials: {
-    ip: string
-    username: string
-    password: string
-  }) => {
-    console.log("Connecting to vManage at:", credentials.ip)
-    // TODO: Store credentials / call your vManage API here
+  const handleConnect = async (credentials: {
+  ip: string;
+  username: string;
+  password: string;
+}) => {
+  try {
+   const authenResponse = await axios.post(
+  `${process.env.NEXT_PUBLIC_URL}/api/POST/authenVmanage`,
+  {
+    ip: credentials.ip,
+    username: credentials.username,
+    password: credentials.password,
+  }
+);
+
+const deviceResponse = await axios.post(
+  `${process.env.NEXT_PUBLIC_URL}/api/POST/deviceVmanage`,
+  {
+    ip: credentials.ip,
+    cookie: authenResponse.data.cookie,
+  }
+);
+
+
+    if (deviceResponse.status === 200) {
+            // console.log("Device response:", deviceResponse.data);
+            setShowModal(false); 
+            setIsConnected(true);
+            const data= deviceResponse.data.data.data
+            const deviceIds = data.map((device: { deviceId: any }) => device.deviceId);
+            const systemip=  data.map((device: { ["system-ip"]: string }) => device["system-ip"]);
+            const hostnames = data.map((device: { ["host-name"]: string }) => device["host-name"]);
+            const reachability = data.map((device: { reachability: any }) => device.reachability);
+            const status = data.map((device: { status: any }) => device.status);
+
+            console.log("Extracted Device IDs:", deviceIds);
+            console.log("Extracted System IPs:", systemip);
+            console.log("Extracted Hostnames:", hostnames); 
+            console.log("Extracted Reachability:", reachability);
+            console.log("Extracted Status:", status);
+
+
+
+            // console.log("Extracted Device IDs:", deviceIds);
+
+    }
+    // Display Popup Error
+  } catch (error) {
+    console.error(
+      "Error occurred while connecting to vManage:",
+      error
+    );
+  }
+
+    
     setShowModal(false)
     setIsConnected(true)
   }
