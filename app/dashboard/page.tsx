@@ -16,8 +16,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 
-/* ─────────────────────────── skeleton helper ─────────────────────────── */
-
 function Skeleton({ className }: { className?: string }) {
   return (
     <div className={cn("rounded-md bg-muted/60 animate-pulse", className)} />
@@ -27,7 +25,6 @@ function Skeleton({ className }: { className?: string }) {
 function DashboardSkeleton() {
   return (
     <div className="space-y-5">
-      {/* header */}
       <div className="flex items-center justify-between">
         <div className="space-y-2">
           <Skeleton className="h-7 w-52" />
@@ -39,7 +36,6 @@ function DashboardSkeleton() {
         </div>
       </div>
 
-      {/* stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <div
@@ -53,11 +49,8 @@ function DashboardSkeleton() {
         ))}
       </div>
 
-      {/* main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* left col */}
         <div className="lg:col-span-2 space-y-4">
-          {/* chart card */}
           <div className="rounded-xl border border-border p-4 bg-card space-y-3">
             <div className="flex justify-between items-center">
               <Skeleton className="h-4 w-36" />
@@ -71,7 +64,6 @@ function DashboardSkeleton() {
             </div>
           </div>
 
-          {/* team card */}
           <div className="rounded-xl border border-border p-4 bg-card space-y-3">
             <Skeleton className="h-4 w-36" />
             {Array.from({ length: 3 }).map((_, i) => (
@@ -87,9 +79,7 @@ function DashboardSkeleton() {
           </div>
         </div>
 
-        {/* right col */}
         <div className="space-y-4">
-          {/* reminders */}
           <div className="rounded-xl border border-border p-4 bg-card space-y-3">
             <Skeleton className="h-4 w-24" />
             {Array.from({ length: 4 }).map((_, i) => (
@@ -100,7 +90,6 @@ function DashboardSkeleton() {
             ))}
           </div>
 
-          {/* progress */}
           <div className="rounded-xl border border-border p-4 bg-card space-y-3">
             <Skeleton className="h-4 w-32" />
             {Array.from({ length: 3 }).map((_, i) => (
@@ -116,7 +105,6 @@ function DashboardSkeleton() {
         </div>
       </div>
 
-      {/* bottom row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {Array.from({ length: 3 }).map((_, i) => (
           <div
@@ -139,14 +127,25 @@ function DashboardSkeleton() {
   );
 }
 
-/* ─────────────────────────── main page ─────────────────────────── */
+function SyncingScreen() {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-6">
+        <div className="h-14 w-14 rounded-full border-4 border-muted border-t-primary animate-spin" />
+        <p className="text-sm text-muted-foreground tracking-wide">
+          Synchronizing with database...
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  // Show skeleton first, then popup modal after a short delay
   useEffect(() => {
     const timer = setTimeout(() => setShowModal(true), 700);
     return () => clearTimeout(timer);
@@ -177,7 +176,7 @@ export default function DashboardPage() {
 
       if (deviceResponse.status === 200) {
         setShowModal(false);
-        setIsConnected(true);
+        setIsSyncing(true);
 
         const data = deviceResponse.data.data.data;
 
@@ -274,6 +273,18 @@ export default function DashboardPage() {
           }
 
           try {
+            const responseCheck = await axios.post(
+              `${process.env.NEXT_PUBLIC_URL}/api/POST/getdevicebyhostname`,
+              {
+                hostname: hostnames[i],
+              },
+            );
+
+            if (responseCheck.data.length > 0) {
+              console.log(`Device ${hostnames[i]} already exists, skipping`);
+              continue;
+            }
+
             const responsesave = await axios.post(
               `${process.env.NEXT_PUBLIC_URL}/api/POST/pushdeviceinfo`,
               {
@@ -294,17 +305,25 @@ export default function DashboardPage() {
             console.error(`Device ${i} (${deviceIds[i]}) save failed`, error);
           }
         }
+
+        setIsSyncing(false);
+        setIsConnected(true);
       }
     } catch (error) {
       console.error("Error occurred while connecting to vManage:", error);
+      setIsSyncing(false);
+      setShowModal(true);
     }
   };
+
   return (
     <div className="flex min-h-screen bg-background">
-      {/* vManage popup */}
-      {showModal && <VManageConnectionModal onConnect={handleConnect} />}
+      {isSyncing && <SyncingScreen />}
 
-      {/* sidebar */}
+      {showModal && !isSyncing && (
+        <VManageConnectionModal onConnect={handleConnect} />
+      )}
+
       <div className="hidden lg:block">
         <Sidebar
           isCollapsed={isCollapsed}
@@ -312,7 +331,6 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* main */}
       <main
         className={cn(
           "flex-1 p-4 md:p-5 lg:p-6 transition-all duration-300",
@@ -320,7 +338,6 @@ export default function DashboardPage() {
         )}
       >
         {isConnected ? (
-          /* ── real dashboard ── */
           <>
             <Header
               title="Campaign Dashboard"
@@ -362,7 +379,6 @@ export default function DashboardPage() {
             </div>
           </>
         ) : (
-          /* ── skeleton while waiting for credentials ── */
           <DashboardSkeleton />
         )}
       </main>
