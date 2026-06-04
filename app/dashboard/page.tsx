@@ -181,26 +181,36 @@ export default function DashboardPage() {
 
         const data = deviceResponse.data.data.data;
 
-        const deviceIds = data.map(
+        const filteredData = data.filter(
+          (device: { "site-id": string }) =>
+            !["1101", "2101"].includes(device["site-id"]),
+        );
+
+        const deviceIds = filteredData.map(
           (device: { deviceId: any }) => device.deviceId,
         );
-        const systemip = data.map(
+        const systemip = filteredData.map(
           (device: { ["system-ip"]: string }) => device["system-ip"],
         );
-        const hostnames = data.map(
+        const hostnames = filteredData.map(
           (device: { ["host-name"]: string }) => device["host-name"],
         );
-        const siteIds = data.map(
+        const siteIds = filteredData.map(
           (device: { ["site-id"]: string }) => device["site-id"],
         );
-        const reachability = data.map(
+        const reachability = filteredData.map(
           (device: { reachability: any }) => device.reachability,
         );
-        const status = data.map((device: { status: any }) => device.status);
-        const uuid = data.map((device: { uuid: any }) => device.uuid);
+        const status = filteredData.map(
+          (device: { status: any }) => device.status,
+        );
+        const uuid = filteredData.map((device: { uuid: any }) => device.uuid);
+        const deviceTypes = filteredData.map(
+          (device: { "device-type": string }) => device["device-type"],
+        );
 
-        const ge01Ips: (string | null)[] = [];
-        const ge02Ips: (string | null)[] = [];
+        // console.log("Device Types:", deviceTypes);
+
         const responseInterfaces = await axios.post(
           `${process.env.NEXT_PUBLIC_URL}/api/POST/getInterfaces`,
           {
@@ -211,6 +221,9 @@ export default function DashboardPage() {
         );
 
         for (let i = 0; i < deviceIds.length; i++) {
+          let ge01Ip: string | null = null;
+          let ge02Ip: string | null = null;
+
           try {
             const responseInterfaces = await axios.post(
               `${process.env.NEXT_PUBLIC_URL}/api/POST/getInterfaces`,
@@ -223,53 +236,69 @@ export default function DashboardPage() {
 
             const interfaces = responseInterfaces.data.data.data;
 
+            const isEthDevice = ["vsmart", "vbond", "vmanage"].includes(
+              deviceTypes[i]?.toLowerCase(),
+            );
+
             const ge01 =
               interfaces.find(
                 (int: any) =>
                   int["af-type"] === "ipv4" &&
-                  (int.ifname === "ge0/1" || int.ifname === "eth1"),
+                  int.ifname === (isEthDevice ? "eth1" : "ge0/1"),
               ) ?? null;
 
             const ge02 =
               interfaces.find(
                 (int: any) =>
                   int["af-type"] === "ipv4" &&
-                  (int.ifname === "ge0/2" || int.ifname === "eth2"),
+                  int.ifname === (isEthDevice ? "eth2" : "ge0/2"),
               ) ?? null;
 
-            ge01Ips.push(ge01?.["ip-address"] ?? null);
-            ge02Ips.push(ge02?.["ip-address"] ?? null);
+            ge01Ip = ge01?.["ip-address"] ?? null;
+            ge02Ip = ge02?.["ip-address"] ?? null;
 
-            console.log(
-              `Device ${i} (${deviceIds[i]})`,
-              "ge0/1:",
-              ge01?.["ip-address"] ?? null,
-              "ge0/2:",
-              ge02?.["ip-address"] ?? null,
-            );
+            // console.log(
+            //   `Device ${i} (${deviceIds[i]})`,
+            //   "type:",
+            //   deviceTypes[i],
+            //   "ge0/1:",
+            //   ge01?.["ip-address"] ?? null,
+            //   "ge0/2:",
+            //   ge02?.["ip-address"] ?? null,
+            // );
           } catch (error) {
             console.error(
               `Device ${i} (${deviceIds[i]}) getInterfaces failed`,
               error,
             );
+          }
 
-            ge01Ips.push(null);
-            ge02Ips.push(null);
+          try {
+            const responsesave = await axios.post(
+              `${process.env.NEXT_PUBLIC_URL}/api/POST/pushdeviceinfo`,
+              {
+                system_ip: systemip[i],
+                hostname: hostnames[i],
+                siteid: siteIds[i],
+                ipad1: ge01Ip,
+                ipad2: ge02Ip,
+                reachable: reachability[i],
+              },
+            );
+            if (responsesave.status === 200) {
+              console.log("Device info saved successfully");
+            } else {
+              console.error("Failed to save device info");
+            }
+          } catch (error) {
+            console.error(`Device ${i} (${deviceIds[i]}) save failed`, error);
           }
         }
-
-        console.log("ge0/1 IP Array:", ge01Ips);
-        console.log("ge0/2 IP Array:", ge02Ips);
-
-        // console.log("ge0/1 IP Array:", ge01Ips);
-        // console.log("ge0/2 IP Array:", ge02Ips);
       }
-      // Display Popup Error
     } catch (error) {
       console.error("Error occurred while connecting to vManage:", error);
     }
   };
-
   return (
     <div className="flex min-h-screen bg-background">
       {/* vManage popup */}
