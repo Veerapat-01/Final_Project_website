@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, createContext, useContext } from "react";
@@ -22,7 +23,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
-// Create context for sidebar collapse state
 const SidebarContext = createContext<{
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
@@ -41,7 +41,7 @@ type SidebarItem = {
 };
 
 const menuItems: SidebarItem[] = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/" },
+  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
 ];
 
 const aiItems = [
@@ -54,6 +54,10 @@ const generalItems = [
   { icon: Settings, label: "Settings", href: "/settings" },
   { icon: HelpCircle, label: "Help", href: "/help" },
   { icon: LogOut, label: "Logout", href: "/logout" },
+];
+
+const securityItems: SidebarItem[] = [
+  { icon: Shield, label: "Security", href: "/security" },
 ];
 
 export function Sidebar({
@@ -153,6 +157,39 @@ export function Sidebar({
                 Security Centre
               </p>
             )}
+            <nav className="space-y-0.5">
+              {securityItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    title={isCollapsed ? item.label : undefined}
+                    className={cn(
+                      "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-normal transition-colors",
+                      isActive
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+                      isCollapsed && "justify-center",
+                    )}
+                  >
+                    <item.icon
+                      className={cn("w-4 h-4", isCollapsed && "w-4.5 h-4.5")}
+                    />
+                    {!isCollapsed && (
+                      <>
+                        <span className="text-sm">{item.label}</span>
+                        {item.badge && (
+                          <span className="ml-auto bg-muted text-foreground text-[10px] font-medium px-1.5 py-0.5 rounded">
+                            {item.badge}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
             {/* <nav className="space-y-0.5">
               {aiItems.map((item) => {
                 const isActive = pathname === item.href

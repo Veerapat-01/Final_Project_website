@@ -40,9 +40,13 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
   const filtered =
     filter === "all" ? devices : devices.filter((d) => d.reachable === filter);
 
-  const swapFiltered = devices.filter((d) =>
-    d.hostname.toLowerCase().includes(swapQuery.toLowerCase()),
-  );
+  const swapFiltered = devices
+    .filter((d) => d.hostname.toLowerCase().includes(swapQuery.toLowerCase()))
+    .sort((a, b) => {
+      if (a.reachable !== "reachable" && b.reachable === "reachable") return -1;
+      if (a.reachable === "reachable" && b.reachable !== "reachable") return 1;
+      return 0;
+    });
 
   useEffect(() => {
     if (!donutRef.current) return;
