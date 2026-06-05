@@ -63,481 +63,479 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
   }, [reach, unreach]);
 
   return (
-    <div style={{ padding: "1.5rem 0", fontFamily: "var(--font-sans)" }}>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: "12px",
-          marginBottom: "16px",
-        }}
-      >
-        {[
-          { label: "Total devices", value: total, color: undefined },
-          { label: "Reachable", value: reach, color: "#1D9E75" },
-          { label: "Unreachable", value: unreach, color: "#E24B4A" },
-          { label: "Sites", value: sites, color: undefined },
-        ].map((m) => (
-          <div
-            key={m.label}
-            style={{
-              background: "var(--color-background-secondary)",
-              borderRadius: "var(--border-radius-md)",
-              padding: "1rem",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "12px",
-                color: "var(--color-text-secondary)",
-                marginBottom: "6px",
-              }}
-            >
-              {m.label}
-            </div>
-            <div
-              style={{
-                fontSize: "22px",
-                fontWeight: 500,
-                color: m.color ?? "var(--color-text-primary)",
-              }}
-            >
-              {m.value}
-            </div>
-          </div>
-        ))}
-      </div>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap');
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "16px",
-          marginBottom: "16px",
-        }}
-      >
-        <div
-          style={{
-            background: "var(--color-background-primary)",
-            border: "0.5px solid var(--color-border-tertiary)",
-            borderRadius: "var(--border-radius-lg)",
-            padding: "1.25rem",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "13px",
-              fontWeight: 500,
-              color: "var(--color-text-secondary)",
-              marginBottom: "1rem",
-            }}
-          >
-            WAN edge health
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
-            <div
-              style={{
-                position: "relative",
-                width: 160,
-                height: 160,
-                flexShrink: 0,
-              }}
-            >
-              <canvas
-                ref={donutRef}
-                width={160}
-                height={160}
-                role="img"
-                aria-label="Donut chart showing WAN edge health"
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  textAlign: "center",
-                  pointerEvents: "none",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "26px",
-                    fontWeight: 500,
-                    color: "var(--color-text-primary)",
-                    lineHeight: 1,
-                  }}
-                >
-                  {total}
-                </div>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    color: "var(--color-text-secondary)",
-                    marginTop: "3px",
-                  }}
-                >
-                  WAN Edge(s)
+        .db-root {
+          padding: 2rem 0;
+          font-family: 'DM Sans', system-ui, sans-serif;
+        }
+
+        /* ── METRIC CARDS ── */
+        .metric-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
+          margin-bottom: 20px;
+        }
+        .metric-card {
+          position: relative;
+          overflow: hidden;
+          border-radius: 16px;
+          padding: 1.35rem 1.25rem 1.2rem;
+          background: #ffffff;
+          border: 1px solid rgba(0,0,0,0.10);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          cursor: default;
+        }
+        .metric-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(0,0,0,0.11), 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .metric-card .accent-bar {
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          height: 4px;
+          border-radius: 16px 16px 0 0;
+        }
+        .metric-card .m-label {
+          font-size: 11px;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          font-weight: 600;
+          color: var(--color-text-secondary);
+          margin-bottom: 10px;
+        }
+        .metric-card .m-value {
+          font-family: 'Syne', sans-serif;
+          font-size: 2.4rem;
+          font-weight: 700;
+          line-height: 1;
+          letter-spacing: -0.02em;
+        }
+        .metric-card .m-sub {
+          font-size: 11px;
+          color: var(--color-text-secondary);
+          margin-top: 6px;
+          opacity: 0.7;
+        }
+        .metric-card .m-icon {
+          position: absolute;
+          bottom: 14px;
+          right: 16px;
+          font-size: 28px;
+          opacity: 0.06;
+          font-family: 'Syne', sans-serif;
+          font-weight: 700;
+          line-height: 1;
+        }
+
+        /* ── PANEL CARDS ── */
+        .panel {
+          background: #ffffff;
+          border: 1px solid rgba(0,0,0,0.10);
+          border-radius: 18px;
+          padding: 1.5rem;
+          position: relative;
+          overflow: hidden;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .panel-title {
+          font-size: 11px;
+          letter-spacing: 0.07em;
+          text-transform: uppercase;
+          font-weight: 600;
+          color: var(--color-text-secondary);
+          margin-bottom: 1.25rem;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .panel-title::after {
+          content: '';
+          flex: 1;
+          height: 0.5px;
+          background: var(--color-border-tertiary);
+        }
+
+        /* ── DARK MODE OVERRIDES ── */
+        @media (prefers-color-scheme: dark) {
+          .metric-card, .panel {
+            background: rgba(255,255,255,0.06) !important;
+            border-color: rgba(255,255,255,0.12) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2) !important;
+          }
+          .metric-card:hover, .panel:hover {
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4) !important;
+          }
+        }
+
+        /* ── WAN EDGE HEALTH ── */
+        .wan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .legend-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 13px;
+          color: var(--color-text-secondary);
+          padding: 10px 14px;
+          border-radius: 10px;
+          background: var(--color-background-secondary);
+          transition: background 0.15s;
+        }
+        .legend-item:hover { background: var(--color-background-secondary); }
+        .legend-dot {
+          width: 9px; height: 9px;
+          border-radius: 50%;
+          flex-shrink: 0;
+          box-shadow: 0 0 0 3px;
+        }
+        .legend-dot.green { background: #1D9E75; box-shadow: 0 0 0 3px rgba(29,158,117,0.15); }
+        .legend-dot.red { background: #E24B4A; box-shadow: 0 0 0 3px rgba(226,75,74,0.15); }
+        .legend-count {
+          font-family: 'Syne', sans-serif;
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--color-text-primary);
+          margin-left: auto;
+        }
+
+        /* ── BFD ROW ── */
+        .bfd-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 0;
+          border-bottom: 0.5px solid var(--color-border-tertiary);
+        }
+        .bfd-row:last-of-type { border-bottom: none; }
+        .bfd-pill {
+          width: 26px; height: 26px;
+          border-radius: 8px;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 11px; font-weight: 700;
+          flex-shrink: 0;
+        }
+        .bfd-label { font-size: 14px; color: var(--color-text-primary); }
+        .bfd-count {
+          font-family: 'Syne', sans-serif;
+          font-size: 20px; font-weight: 700;
+          color: var(--color-text-primary);
+        }
+
+        /* ── PROGRESS BAR ── */
+        .pbar-wrap {
+          margin-top: 20px;
+          padding-top: 16px;
+          border-top: 0.5px solid var(--color-border-tertiary);
+        }
+        .pbar-header {
+          display: flex; justify-content: space-between; align-items: baseline;
+          margin-bottom: 8px;
+        }
+        .pbar-label { font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 500; color: var(--color-text-secondary); }
+        .pbar-pct { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: var(--color-text-primary); }
+        .pbar-track {
+          background: var(--color-background-secondary);
+          border-radius: 100px;
+          height: 8px;
+          overflow: hidden;
+        }
+        .pbar-fill {
+          height: 100%;
+          border-radius: 100px;
+          background: linear-gradient(90deg, #1D9E75 0%, #5DCAA5 100%);
+          transition: width 1s cubic-bezier(0.23, 1, 0.32, 1);
+          position: relative;
+        }
+        .pbar-fill::after {
+          content: '';
+          position: absolute;
+          right: 0; top: 0; bottom: 0;
+          width: 20px;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25));
+          border-radius: inherit;
+        }
+
+        /* ── DEVICE TABLE ── */
+        .device-table-panel { }
+        .filter-bar { display: flex; gap: 6px; }
+        .filter-btn {
+          font-size: 12px;
+          padding: 5px 14px;
+          border-radius: 100px;
+          border: 0.5px solid var(--color-border-tertiary);
+          background: transparent;
+          color: var(--color-text-secondary);
+          font-weight: 400;
+          cursor: pointer;
+          font-family: 'DM Sans', sans-serif;
+          transition: all 0.15s ease;
+          letter-spacing: 0.01em;
+        }
+        .filter-btn.active {
+          background: var(--color-text-primary);
+          color: var(--color-background-primary);
+          border-color: var(--color-text-primary);
+          font-weight: 500;
+        }
+        .filter-btn:not(.active):hover {
+          background: var(--color-background-secondary);
+          color: var(--color-text-primary);
+        }
+        .tbl { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+        .tbl th {
+          font-size: 10.5px;
+          font-weight: 600;
+          letter-spacing: 0.07em;
+          text-transform: uppercase;
+          color: var(--color-text-secondary);
+          text-align: left;
+          padding: 10px 12px 10px;
+          border-bottom: 0.5px solid var(--color-border-tertiary);
+        }
+        .tbl td {
+          padding: 11px 12px;
+          border-bottom: 0.5px solid var(--color-border-tertiary);
+          color: var(--color-text-primary);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          transition: background 0.1s;
+        }
+        .tbl tr:hover td { background: var(--color-background-secondary); }
+        .tbl tr:last-child td { border-bottom: none; }
+        .tbl td.muted { color: var(--color-text-secondary); font-style: italic; }
+        .tbl td.mono { font-family: 'DM Mono', monospace; font-size: 12px; }
+
+        /* status badge */
+        .status-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 3px 10px;
+          border-radius: 100px;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.03em;
+        }
+        .status-badge.up { background: #EAF3DE; color: #3B6D11; }
+        .status-badge.down { background: #FCEBEB; color: #A32D2D; }
+        .status-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .status-dot.up { background: #1D9E75; }
+        .status-dot.down { background: #E24B4A; }
+
+        /* ── DONUT WRAPPER ── */
+        .donut-wrap {
+          position: relative; width: 160px; height: 160px; flex-shrink: 0;
+        }
+        .donut-center {
+          position: absolute; top: 50%; left: 50%;
+          transform: translate(-50%, -50%);
+          text-align: center; pointer-events: none;
+        }
+        .donut-num {
+          font-family: 'Syne', sans-serif;
+          font-size: 30px; font-weight: 700;
+          color: var(--color-text-primary);
+          line-height: 1;
+        }
+        .donut-sub {
+          font-size: 10px; color: var(--color-text-secondary);
+          margin-top: 3px; letter-spacing: 0.04em; text-transform: uppercase;
+        }
+
+        /* ── EMPTY STATE ── */
+        .empty-state {
+          display: flex; align-items: center; justify-content: center;
+          height: 60vh; flex-direction: column; gap: 12px;
+          color: var(--color-text-secondary); font-size: 14px;
+          font-family: 'DM Sans', sans-serif;
+        }
+        .empty-icon {
+          width: 48px; height: 48px; border-radius: 14px;
+          background: var(--color-background-secondary);
+          border: 0.5px solid var(--color-border-tertiary);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 22px; margin-bottom: 4px;
+        }
+
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .anim-0 { animation: fadeUp 0.4s ease both; }
+        .anim-1 { animation: fadeUp 0.4s 0.07s ease both; }
+        .anim-2 { animation: fadeUp 0.4s 0.14s ease both; }
+        .anim-3 { animation: fadeUp 0.4s 0.21s ease both; }
+        .anim-panel-1 { animation: fadeUp 0.45s 0.1s ease both; }
+        .anim-panel-2 { animation: fadeUp 0.45s 0.18s ease both; }
+        .anim-table { animation: fadeUp 0.45s 0.26s ease both; }
+      `}</style>
+
+      <div className="db-root">
+
+        {/* ── METRIC CARDS ── */}
+        <div className="metric-grid">
+          {[
+            { label: "Total Devices", value: total, color: "var(--color-text-primary)", bar: "var(--color-border-tertiary)", icon: "DEV", sub: "monitored", cls: "anim-0" },
+            { label: "Reachable", value: reach, color: "#1D9E75", bar: "linear-gradient(90deg,#1D9E75,#5DCAA5)", icon: "UP", sub: "online now", cls: "anim-1" },
+            { label: "Unreachable", value: unreach, color: "#E24B4A", bar: "linear-gradient(90deg,#E24B4A,#F09595)", icon: "DN", sub: "offline", cls: "anim-2" },
+            { label: "Sites", value: sites, color: "var(--color-text-primary)", bar: "linear-gradient(90deg,#7F77DD,#AFA9EC)", icon: "LOC", sub: "locations", cls: "anim-3" },
+          ].map((m) => (
+            <div key={m.label} className={`metric-card ${m.cls}`}>
+              <div className="accent-bar" style={{ background: m.bar }} />
+              <div className="m-label">{m.label}</div>
+              <div className="m-value" style={{ color: m.color }}>{m.value}</div>
+              <div className="m-sub">{m.sub}</div>
+              <div className="m-icon">{m.icon}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── WAN HEALTH + BFD ── */}
+        <div className="wan-grid">
+          {/* WAN Edge Health */}
+          <div className="panel anim-panel-1">
+            <div className="panel-title">WAN Edge Health</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
+              <div className="donut-wrap">
+                <canvas
+                  ref={donutRef}
+                  width={160}
+                  height={160}
+                  role="img"
+                  aria-label="Donut chart showing WAN edge health"
+                />
+                <div className="donut-center">
+                  <div className="donut-num">{total}</div>
+                  <div className="donut-sub">WAN Edges</div>
                 </div>
               </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px", flex: 1 }}>
+                {[
+                  { color: "green", label: "Reachable", count: reach },
+                  { color: "red", label: "Unreachable", count: unreach },
+                ].map((l) => (
+                  <div key={l.label} className="legend-item">
+                    <span className={`legend-dot ${l.color}`} />
+                    <span>{l.label}</span>
+                    <span className="legend-count">{l.count}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "12px" }}
-            >
-              {[
-                { color: "#1D9E75", label: "Reachable", count: reach },
-                { color: "#E24B4A", label: "Unreachable", count: unreach },
-              ].map((l) => (
-                <div
-                  key={l.label}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    fontSize: "13px",
-                    color: "var(--color-text-secondary)",
-                  }}
-                >
+          </div>
+
+          {/* BFD Connectivity */}
+          <div className="panel anim-panel-2">
+            <div className="panel-title">Site BFD Connectivity ({sites})</div>
+            {[
+              { label: "Reachable", count: reach, bg: "#EAF3DE", color: "#3B6D11", letter: "R" },
+              { label: "Partial", count: partial, bg: "#FAEEDA", color: "#854F0B", letter: "P" },
+              { label: "Unreachable", count: unreach, bg: "#FCEBEB", color: "#A32D2D", letter: "U" },
+            ].map((row) => (
+              <div key={row.label} className="bfd-row">
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                   <span
-                    style={{
-                      width: 12,
-                      height: 12,
-                      borderRadius: "50%",
-                      background: l.color,
-                      flexShrink: 0,
-                    }}
-                  />
-                  {l.label}
-                  <span
-                    style={{
-                      fontWeight: 500,
-                      color: "var(--color-text-primary)",
-                      marginLeft: "auto",
-                      minWidth: 32,
-                      textAlign: "right",
-                    }}
+                    className="bfd-pill"
+                    style={{ background: row.bg, color: row.color }}
                   >
-                    {l.count}
+                    {row.letter}
                   </span>
+                  <span className="bfd-label">{row.label}</span>
                 </div>
+                <span className="bfd-count">{row.count}</span>
+              </div>
+            ))}
+            <div className="pbar-wrap">
+              <div className="pbar-header">
+                <span className="pbar-label">Reachability Rate</span>
+                <span className="pbar-pct">{pct}%</span>
+              </div>
+              <div className="pbar-track">
+                <div className="pbar-fill" style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── DEVICE TABLE ── */}
+        <div className="panel device-table-panel anim-table">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+            <div className="panel-title" style={{ margin: 0, flex: 1 }}>Device List</div>
+            <div className="filter-bar">
+              {(["all", "reachable", "unreachable"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`filter-btn${filter === f ? " active" : ""}`}
+                >
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                </button>
               ))}
             </div>
           </div>
-        </div>
 
-        <div
-          style={{
-            background: "var(--color-background-primary)",
-            border: "0.5px solid var(--color-border-tertiary)",
-            borderRadius: "var(--border-radius-lg)",
-            padding: "1.25rem",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "13px",
-              fontWeight: 500,
-              color: "var(--color-text-secondary)",
-              marginBottom: "1rem",
-            }}
-          >
-            Site BFD connectivity ({sites})
-          </div>
-          {[
-            {
-              label: "Reachable",
-              count: reach,
-              bg: "#EAF3DE",
-              color: "#3B6D11",
-            },
-            {
-              label: "Partial",
-              count: partial,
-              bg: "#FAEEDA",
-              color: "#854F0B",
-            },
-            {
-              label: "Unreachable",
-              count: unreach,
-              bg: "#FCEBEB",
-              color: "#A32D2D",
-            },
-          ].map((row) => (
-            <div
-              key={row.label}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "10px 0",
-                borderBottom: "0.5px solid var(--color-border-tertiary)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  fontSize: "14px",
-                  color: "var(--color-text-primary)",
-                }}
-              >
-                <span
-                  style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: "50%",
-                    background: row.bg,
-                    color: row.color,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "11px",
-                    fontWeight: 500,
-                  }}
-                >
-                  {row.label[0]}
-                </span>
-                {row.label}
-              </div>
-              <div
-                style={{
-                  fontSize: "18px",
-                  fontWeight: 500,
-                  color: "var(--color-text-primary)",
-                }}
-              >
-                {row.count}
-              </div>
-            </div>
-          ))}
-          <div style={{ marginTop: "16px" }}>
-            <div
-              style={{
-                fontSize: "11px",
-                color: "var(--color-text-secondary)",
-                marginBottom: "4px",
-              }}
-            >
-              Reachability rate
-            </div>
-            <div
-              style={{
-                background: "var(--color-background-secondary)",
-                borderRadius: "4px",
-                height: "6px",
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  height: "100%",
-                  borderRadius: "4px",
-                  background: "#1D9E75",
-                  width: `${pct}%`,
-                  transition: "width 0.8s ease",
-                }}
-              />
-            </div>
-            <div
-              style={{
-                fontSize: "12px",
-                color: "var(--color-text-secondary)",
-                marginTop: "4px",
-              }}
-            >
-              {pct}%
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div
-        style={{
-          background: "var(--color-background-primary)",
-          border: "0.5px solid var(--color-border-tertiary)",
-          borderRadius: "var(--border-radius-lg)",
-          padding: "1.25rem",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "12px",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "13px",
-              fontWeight: 500,
-              color: "var(--color-text-secondary)",
-            }}
-          >
-            Device list
-          </div>
-          <div style={{ display: "flex", gap: "8px" }}>
-            {(["all", "reachable", "unreachable"] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                style={{
-                  fontSize: "12px",
-                  padding: "4px 12px",
-                  borderRadius: "20px",
-                  border: "0.5px solid var(--color-border-tertiary)",
-                  background:
-                    filter === f
-                      ? "var(--color-background-secondary)"
-                      : "transparent",
-                  color:
-                    filter === f
-                      ? "var(--color-text-primary)"
-                      : "var(--color-text-secondary)",
-                  fontWeight: filter === f ? 500 : 400,
-                  cursor: "pointer",
-                }}
-              >
-                {f.charAt(0).toUpperCase() + f.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: "13px",
-              tableLayout: "fixed",
-            }}
-          >
-            <colgroup>
-              <col style={{ width: "22%" }} />
-              <col style={{ width: "14%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "16%" }} />
-              <col style={{ width: "16%" }} />
-              <col style={{ width: "10%" }} />
-            </colgroup>
-            <thead>
-              <tr>
-                {[
-                  "Hostname",
-                  "System IP",
-                  "Site ID",
-                  "Type",
-                  "ge0/1 IP",
-                  "ge0/2 IP",
-                  "Status",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 500,
-                      color: "var(--color-text-secondary)",
-                      textAlign: "left",
-                      padding: "8px 10px",
-                      borderBottom: "0.5px solid var(--color-border-tertiary)",
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
+          <div style={{ overflowX: "auto" }}>
+            <table className="tbl">
+              <colgroup>
+                <col style={{ width: "22%" }} />
+                <col style={{ width: "14%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "16%" }} />
+                <col style={{ width: "16%" }} />
+                <col style={{ width: "10%" }} />
+              </colgroup>
+              <thead>
                 <tr>
-                  <td
-                    colSpan={7}
-                    style={{
-                      textAlign: "center",
-                      padding: "2rem",
-                      color: "var(--color-text-secondary)",
-                    }}
-                  >
-                    No devices found
-                  </td>
+                  {["Hostname", "System IP", "Site ID", "Type", "ge0/1 IP", "ge0/2 IP", "Status"].map((h) => (
+                    <th key={h}>{h}</th>
+                  ))}
                 </tr>
-              ) : (
-                filtered.map((d, idx) => (
-                  <tr key={idx}>
-                    {[
-                      d.hostname,
-                      d.systemIp,
-                      d.siteId,
-                      d.type,
-                      d.ge01 ?? "—",
-                      d.ge02 ?? "—",
-                    ].map((val, i) => (
-                      <td
-                        key={i}
-                        title={String(val)}
-                        style={{
-                          padding: "9px 10px",
-                          borderBottom:
-                            "0.5px solid var(--color-border-tertiary)",
-                          color:
-                            val === "—"
-                              ? "var(--color-text-secondary)"
-                              : "var(--color-text-primary)",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {val}
-                      </td>
-                    ))}
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
                     <td
+                      colSpan={7}
                       style={{
-                        padding: "9px 10px",
-                        borderBottom:
-                          "0.5px solid var(--color-border-tertiary)",
+                        textAlign: "center",
+                        padding: "3rem",
+                        color: "var(--color-text-secondary)",
+                        fontStyle: "italic",
                       }}
                     >
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "4px",
-                          padding: "2px 8px",
-                          borderRadius: "20px",
-                          fontSize: "11px",
-                          fontWeight: 500,
-                          background:
-                            d.reachable === "reachable" ? "#EAF3DE" : "#FCEBEB",
-                          color:
-                            d.reachable === "reachable" ? "#3B6D11" : "#A32D2D",
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: 7,
-                            height: 7,
-                            borderRadius: "50%",
-                            background:
-                              d.reachable === "reachable"
-                                ? "#639922"
-                                : "#E24B4A",
-                            display: "inline-block",
-                          }}
-                        />
-                        {d.reachable === "reachable" ? "Up" : "Down"}
-                      </span>
+                      No devices found
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filtered.map((d, idx) => (
+                    <tr key={idx}>
+                      <td style={{ fontWeight: 500 }}>{d.hostname}</td>
+                      <td className="mono">{d.systemIp}</td>
+                      <td>{d.siteId}</td>
+                      <td style={{ textTransform: "uppercase", fontSize: "11px", letterSpacing: "0.04em", fontWeight: 600 }}>{d.type}</td>
+                      <td className={cn("mono", !d.ge01 && "muted")}>{d.ge01 ?? "—"}</td>
+                      <td className={cn("mono", !d.ge02 && "muted")}>{d.ge02 ?? "—"}</td>
+                      <td>
+                        <span className={`status-badge ${d.reachable === "reachable" ? "up" : "down"}`}>
+                          <span className={`status-dot ${d.reachable === "reachable" ? "up" : "down"}`} />
+                          {d.reachable === "reachable" ? "Up" : "Down"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -610,8 +608,6 @@ export default function DashboardPage() {
           (device: { "device-type": string }) => device["device-type"],
         );
 
-        // console.log("Device Types:", deviceTypes);
-
         const responseInterfaces = await axios.post(
           `${process.env.NEXT_PUBLIC_URL}/api/POST/getInterfaces`,
           {
@@ -657,16 +653,6 @@ export default function DashboardPage() {
 
             ge01Ip = ge01?.["ip-address"] ?? null;
             ge02Ip = ge02?.["ip-address"] ?? null;
-
-            // console.log(
-            //   `Device ${i} (${deviceIds[i]})`,
-            //   "type:",
-            //   deviceTypes[i],
-            //   "ge0/1:",
-            //   ge01?.["ip-address"] ?? null,
-            //   "ge0/2:",
-            //   ge02?.["ip-address"] ?? null,
-            // );
           } catch (error) {
             console.error(
               `Device ${i} (${deviceIds[i]}) getInterfaces failed`,
@@ -750,17 +736,9 @@ export default function DashboardPage() {
         {isConnected && chartReady ? (
           <DeviceDashboard devices={devices} />
         ) : (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              height: "60vh",
-              color: "var(--color-text-secondary)",
-              fontSize: "14px",
-            }}
-          >
-            Waiting for connection...
+          <div className="empty-state">
+            <div className="empty-icon">⬡</div>
+            <span>Waiting for connection…</span>
           </div>
         )}
       </main>
