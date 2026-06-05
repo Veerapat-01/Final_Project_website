@@ -27,6 +27,12 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [swapQuery, setSwapQuery] = useState("");
   const swapInputRef = useRef<HTMLInputElement>(null);
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [showSwapTargetModal, setShowSwapTargetModal] = useState(false);
+  const [swapTargetQuery, setSwapTargetQuery] = useState("");
+  const swapTargetInputRef = useRef<HTMLInputElement>(null);
+  const [targetDevice, setTargetDevice] = useState<Device | null>(null);
+  const [showPreconfigModal, setShowPreconfigModal] = useState(false);
 
   const total = devices.length;
   const reach = devices.filter((d) => d.reachable === "reachable").length;
@@ -45,6 +51,18 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
     .sort((a, b) => {
       if (a.reachable !== "reachable" && b.reachable === "reachable") return -1;
       if (a.reachable === "reachable" && b.reachable !== "reachable") return 1;
+      return 0;
+    });
+
+  const swapTargetFiltered = devices
+    .filter(
+      (d) =>
+        d.hostname !== selectedDevice?.hostname &&
+        d.hostname.toLowerCase().includes(swapTargetQuery.toLowerCase()),
+    )
+    .sort((a, b) => {
+      if (a.reachable === "reachable" && b.reachable !== "reachable") return -1;
+      if (a.reachable !== "reachable" && b.reachable === "reachable") return 1;
       return 0;
     });
 
@@ -88,6 +106,22 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
     if (showSwapModal) window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [showSwapModal]);
+
+  useEffect(() => {
+    if (showSwapTargetModal) {
+      setTimeout(() => swapTargetInputRef.current?.focus(), 80);
+    } else {
+      setSwapTargetQuery("");
+    }
+  }, [showSwapTargetModal]);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowSwapTargetModal(false);
+    };
+    if (showSwapTargetModal) window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [showSwapTargetModal]);
 
   return (
     <>
@@ -595,6 +629,217 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
           padding: 2px 7px;
         }
 
+        .swap-item-action-btn {
+          font-size: 11px;
+          font-weight: 600;
+          padding: 4px 12px;
+          border-radius: 100px;
+          border: 0.5px solid #1D9E75;
+          background: transparent;
+          color: #1D9E75;
+          cursor: pointer;
+          font-family: 'DM Sans', sans-serif;
+          transition: all 0.15s ease;
+          letter-spacing: 0.02em;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .swap-item-action-btn:hover {
+          background: #1D9E75;
+          color: #ffffff;
+        }
+
+        .swap-target-from {
+          margin: 0 20px 0;
+          padding: 10px 14px;
+          border-radius: 10px;
+          background: var(--color-background-secondary);
+          border: 0.5px solid var(--color-border-tertiary);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .swap-target-from-label {
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: var(--color-text-secondary);
+          flex-shrink: 0;
+        }
+        .swap-target-from-arrow {
+          color: var(--color-text-secondary);
+          opacity: 0.4;
+          flex-shrink: 0;
+        }
+        .swap-target-from-hostname {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--color-text-primary);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .swap-target-from-ip {
+          font-size: 11px;
+          font-family: 'DM Mono', monospace;
+          color: var(--color-text-secondary);
+          margin-left: auto;
+          flex-shrink: 0;
+        }
+
+        .preconfig-route {
+          margin: 0 20px;
+          padding: 14px 16px;
+          border-radius: 12px;
+          background: var(--color-background-secondary);
+          border: 0.5px solid var(--color-border-tertiary);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .preconfig-route-device {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .preconfig-route-tag {
+          font-size: 9.5px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--color-text-secondary);
+          opacity: 0.6;
+        }
+        .preconfig-route-hostname {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--color-text-primary);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .preconfig-route-ip {
+          font-size: 11px;
+          font-family: 'DM Mono', monospace;
+          color: var(--color-text-secondary);
+        }
+        .preconfig-route-arrow {
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px; height: 28px;
+          border-radius: 8px;
+          background: var(--color-background-primary, #ffffff);
+          border: 0.5px solid var(--color-border-tertiary);
+          color: #1D9E75;
+        }
+        .preconfig-cmd-section {
+          padding: 0 20px;
+        }
+        .preconfig-cmd-label {
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.07em;
+          text-transform: uppercase;
+          color: var(--color-text-secondary);
+          opacity: 0.6;
+          margin-bottom: 8px;
+        }
+        .preconfig-cmd-wrap {
+          position: relative;
+          border-radius: 10px;
+          background: #0f1117;
+          border: 0.5px solid rgba(255,255,255,0.08);
+          overflow: hidden;
+        }
+        .preconfig-cmd-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 14px;
+          border-bottom: 0.5px solid rgba(255,255,255,0.06);
+          background: rgba(255,255,255,0.03);
+        }
+        .preconfig-cmd-dots {
+          display: flex;
+          gap: 5px;
+        }
+        .preconfig-cmd-dot {
+          width: 8px; height: 8px;
+          border-radius: 50%;
+        }
+        .preconfig-cmd-copy {
+          font-size: 10px;
+          font-weight: 500;
+          letter-spacing: 0.04em;
+          font-family: 'DM Sans', sans-serif;
+          color: rgba(255,255,255,0.35);
+          background: transparent;
+          border: 0.5px solid rgba(255,255,255,0.12);
+          border-radius: 5px;
+          padding: 2px 9px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .preconfig-cmd-copy:hover {
+          color: rgba(255,255,255,0.8);
+          border-color: rgba(255,255,255,0.3);
+        }
+        .preconfig-cmd-body {
+          padding: 14px 16px;
+          font-family: 'DM Mono', monospace;
+          font-size: 12px;
+          line-height: 1.75;
+          color: rgba(255,255,255,0.85);
+          white-space: pre;
+          overflow-x: auto;
+        }
+        .preconfig-cmd-body .cmd-kw { color: #7DD3AF; }
+        .preconfig-cmd-body .cmd-val { color: #A5D6FA; }
+        .preconfig-cmd-body .cmd-comment { color: rgba(255,255,255,0.3); }
+        .preconfig-footer {
+          padding: 14px 20px 20px;
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+        }
+        .preconfig-close-btn {
+          font-size: 12px;
+          font-weight: 500;
+          padding: 7px 18px;
+          border-radius: 100px;
+          border: 0.5px solid var(--color-border-tertiary);
+          background: transparent;
+          color: var(--color-text-secondary);
+          cursor: pointer;
+          font-family: 'DM Sans', sans-serif;
+          transition: all 0.15s ease;
+        }
+        .preconfig-close-btn:hover {
+          background: var(--color-background-secondary);
+          color: var(--color-text-primary);
+        }
+        .preconfig-apply-btn {
+          font-size: 12px;
+          font-weight: 600;
+          padding: 7px 18px;
+          border-radius: 100px;
+          border: none;
+          background: #1D9E75;
+          color: #ffffff;
+          cursor: pointer;
+          font-family: 'DM Sans', sans-serif;
+          transition: all 0.15s ease;
+          letter-spacing: 0.02em;
+        }
+        .preconfig-apply-btn:hover {
+          background: #178a64;
+        }
+
         .swap-empty {
           display: flex;
           flex-direction: column;
@@ -749,10 +994,384 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
                         />
                         {d.reachable === "reachable" ? "Up" : "Down"}
                       </span>
+                      <button
+                        className="swap-item-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedDevice(d);
+                          setShowSwapModal(false);
+                          setShowSwapTargetModal(true);
+                        }}
+                      >
+                        Swap
+                      </button>
                     </div>
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSwapTargetModal && (
+        <div
+          className="swap-overlay"
+          onClick={() => setShowSwapTargetModal(false)}
+        >
+          <div className="swap-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="swap-modal-header">
+              <div className="swap-modal-title">
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M2 5h10M9 2l3 3-3 3M14 11H4M7 8l-3 3 3 3"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Select Replacement
+              </div>
+              <button
+                className="swap-modal-close"
+                onClick={() => setShowSwapTargetModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            {selectedDevice && (
+              <div style={{ padding: "12px 20px 0" }}>
+                <div className="swap-target-from">
+                  <span className="swap-target-from-label">From</span>
+                  <span className="swap-target-from-arrow">→</span>
+                  <span className="swap-target-from-hostname">
+                    {selectedDevice.hostname}
+                  </span>
+                  <span className="swap-target-from-ip">
+                    {selectedDevice.systemIp}
+                  </span>
+                  <span
+                    className={`status-badge ${selectedDevice.reachable === "reachable" ? "up" : "down"}`}
+                    style={{ flexShrink: 0 }}
+                  >
+                    <span
+                      className={`status-dot ${selectedDevice.reachable === "reachable" ? "up" : "down"}`}
+                    />
+                    {selectedDevice.reachable === "reachable" ? "Up" : "Down"}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="swap-search-wrap">
+              <span className="swap-search-icon">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle
+                    cx="6.5"
+                    cy="6.5"
+                    r="4.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                  <path
+                    d="M10 10l3.5 3.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
+              <input
+                ref={swapTargetInputRef}
+                className="swap-search-input"
+                placeholder="Search replacement device..."
+                value={swapTargetQuery}
+                onChange={(e) => setSwapTargetQuery(e.target.value)}
+              />
+            </div>
+
+            <div className="swap-divider" />
+
+            <div className="swap-result-count">
+              {swapTargetFiltered.length} device
+              {swapTargetFiltered.length !== 1 ? "s" : ""} found
+            </div>
+
+            <div className="swap-list">
+              {swapTargetFiltered.length === 0 ? (
+                <div className="swap-empty">
+                  <svg
+                    width="28"
+                    height="28"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle
+                      cx="11"
+                      cy="11"
+                      r="7"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    />
+                    <path
+                      d="M16.5 16.5L21 21"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  No devices matched
+                </div>
+              ) : (
+                swapTargetFiltered.map((d, idx) => (
+                  <div key={idx} className="swap-list-item">
+                    <div className="swap-item-left">
+                      <div className="swap-item-icon">
+                        {d.type?.slice(0, 2).toUpperCase() ?? "—"}
+                      </div>
+                      <div>
+                        <div className="swap-item-hostname">{d.hostname}</div>
+                        <div className="swap-item-ip">{d.systemIp}</div>
+                      </div>
+                    </div>
+                    <div className="swap-item-right">
+                      <span className="swap-item-type">{d.type}</span>
+                      <span
+                        className={`status-badge ${d.reachable === "reachable" ? "up" : "down"}`}
+                      >
+                        <span
+                          className={`status-dot ${d.reachable === "reachable" ? "up" : "down"}`}
+                        />
+                        {d.reachable === "reachable" ? "Up" : "Down"}
+                      </span>
+                      <button
+                        className="swap-item-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTargetDevice(d);
+                          setShowSwapTargetModal(false);
+                          setShowPreconfigModal(true);
+                        }}
+                      >
+                        Confirm
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPreconfigModal && selectedDevice && targetDevice && (
+        <div
+          className="swap-overlay"
+          onClick={() => {
+            setShowPreconfigModal(false);
+            setSelectedDevice(null);
+            setTargetDevice(null);
+          }}
+        >
+          <div
+            className="swap-modal"
+            style={{ width: 560 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="swap-modal-header">
+              <div className="swap-modal-title">
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    x="2"
+                    y="3"
+                    width="12"
+                    height="10"
+                    rx="2"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                  <path
+                    d="M5 7h6M5 10h4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                Preconfigure Command
+              </div>
+              <button
+                className="swap-modal-close"
+                onClick={() => {
+                  setShowPreconfigModal(false);
+                  setSelectedDevice(null);
+                  setTargetDevice(null);
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: "14px 20px 0" }}>
+              <div className="preconfig-route">
+                <div className="preconfig-route-device">
+                  <span className="preconfig-route-tag">From</span>
+                  <span className="preconfig-route-hostname">
+                    {selectedDevice.hostname}
+                  </span>
+                  <span className="preconfig-route-ip">
+                    {selectedDevice.systemIp}
+                  </span>
+                </div>
+                <div className="preconfig-route-arrow">
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M3 8h10M9 4l4 4-4 4"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+                <div
+                  className="preconfig-route-device"
+                  style={{ textAlign: "right" }}
+                >
+                  <span className="preconfig-route-tag">To</span>
+                  <span className="preconfig-route-hostname">
+                    {targetDevice.hostname}
+                  </span>
+                  <span className="preconfig-route-ip">
+                    {targetDevice.systemIp}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="preconfig-cmd-section" style={{ marginTop: 14 }}>
+              <div className="preconfig-cmd-label">Preconfigure Command</div>
+              <div className="preconfig-cmd-wrap">
+                <div className="preconfig-cmd-bar">
+                  <div className="preconfig-cmd-dots">
+                    <div
+                      className="preconfig-cmd-dot"
+                      style={{ background: "#FF5F57" }}
+                    />
+                    <div
+                      className="preconfig-cmd-dot"
+                      style={{ background: "#FFBD2E" }}
+                    />
+                    <div
+                      className="preconfig-cmd-dot"
+                      style={{ background: "#28CA41" }}
+                    />
+                  </div>
+                  <button
+                    className="preconfig-cmd-copy"
+                    onClick={() => {
+                      const cmd = `configure\nsystem\n  host-name     ${targetDevice.hostname}\n  system-ip     ${targetDevice.systemIp}\n  site-id       ${targetDevice.siteId}\n!\nrequest device swap\n  from-host     ${selectedDevice.hostname}\n  from-ip       ${selectedDevice.systemIp}\n  to-host       ${targetDevice.hostname}\n  to-ip         ${targetDevice.systemIp}\n!`;
+                      navigator.clipboard.writeText(cmd);
+                    }}
+                  >
+                    Copy
+                  </button>
+                </div>
+                <div className="preconfig-cmd-body">
+                  <span className="cmd-comment">{`! Preconfigure — ${new Date().toISOString().slice(0, 10)}\n`}</span>
+                  <span className="cmd-kw">configure{`\n`}</span>
+                  <span className="cmd-kw">system{`\n`}</span>
+                  <span>{`  `}</span>
+                  <span className="cmd-kw">host-name</span>
+                  <span>{`     `}</span>
+                  <span className="cmd-val">{targetDevice.hostname}</span>
+                  <span>{`\n`}</span>
+                  <span>{`  `}</span>
+                  <span className="cmd-kw">system-ip</span>
+                  <span>{`     `}</span>
+                  <span className="cmd-val">{targetDevice.systemIp}</span>
+                  <span>{`\n`}</span>
+                  <span>{`  `}</span>
+                  <span className="cmd-kw">site-id</span>
+                  <span>{`       `}</span>
+                  <span className="cmd-val">{targetDevice.siteId}</span>
+                  <span>{`\n`}</span>
+                  <span className="cmd-kw">!</span>
+                  <span>{`\n`}</span>
+                  <span className="cmd-kw">request device swap</span>
+                  <span>{`\n`}</span>
+                  <span>{`  `}</span>
+                  <span className="cmd-kw">from-host</span>
+                  <span>{`     `}</span>
+                  <span className="cmd-val">{selectedDevice.hostname}</span>
+                  <span>{`\n`}</span>
+                  <span>{`  `}</span>
+                  <span className="cmd-kw">from-ip</span>
+                  <span>{`       `}</span>
+                  <span className="cmd-val">{selectedDevice.systemIp}</span>
+                  <span>{`\n`}</span>
+                  <span>{`  `}</span>
+                  <span className="cmd-kw">to-host</span>
+                  <span>{`       `}</span>
+                  <span className="cmd-val">{targetDevice.hostname}</span>
+                  <span>{`\n`}</span>
+                  <span>{`  `}</span>
+                  <span className="cmd-kw">to-ip</span>
+                  <span>{`         `}</span>
+                  <span className="cmd-val">{targetDevice.systemIp}</span>
+                  <span>{`\n`}</span>
+                  <span className="cmd-kw">!</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="preconfig-footer">
+              <button
+                className="preconfig-close-btn"
+                onClick={() => {
+                  setShowPreconfigModal(false);
+                  setSelectedDevice(null);
+                  setTargetDevice(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="preconfig-apply-btn"
+                onClick={() => {
+                  setShowPreconfigModal(false);
+                  setSelectedDevice(null);
+                  setTargetDevice(null);
+                }}
+              >
+                Apply
+              </button>
             </div>
           </div>
         </div>
