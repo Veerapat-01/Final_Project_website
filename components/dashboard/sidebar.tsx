@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import {
   LayoutDashboard,
@@ -15,48 +15,53 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useState, createContext, useContext } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Button } from "@/components/ui/button"
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useState, createContext, useContext } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 // Create context for sidebar collapse state
 const SidebarContext = createContext<{
-  isCollapsed: boolean
-  setIsCollapsed: (collapsed: boolean) => void
+  isCollapsed: boolean;
+  setIsCollapsed: (collapsed: boolean) => void;
 }>({
   isCollapsed: false,
   setIsCollapsed: () => {},
-})
+});
 
-export const useSidebar = () => useContext(SidebarContext)
+export const useSidebar = () => useContext(SidebarContext);
 
-const menuItems = [
+type SidebarItem = {
+  icon: typeof LayoutDashboard;
+  label: string;
+  href: string;
+  badge?: string;
+};
+
+const menuItems: SidebarItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-  { icon: CheckSquare, label: "Campaigns", badge: "12", href: "/tasks" },
-  { icon: Calendar, label: "Schedule", href: "/calendar" },
-  { icon: BarChart3, label: "Analytics", href: "/analytics" },
-  { icon: Users, label: "Team", href: "/team" },
-  { icon: FileText, label: "Templates", href: "/templates/new" },
-]
+];
 
 const aiItems = [
   { icon: Bot, label: "AI Assistant", badge: "New", href: "/ai-assistant" },
   { icon: Sparkles, label: "Content Generator", href: "/content-generator" },
   { icon: Wand2, label: "Smart Suggestions", href: "/suggestions" },
-]
+];
 
 const generalItems = [
   { icon: Settings, label: "Settings", href: "/settings" },
   { icon: HelpCircle, label: "Help", href: "/help" },
   { icon: LogOut, label: "Logout", href: "/logout" },
-]
+];
 
-export function Sidebar({ isCollapsed = false, onToggle }: { isCollapsed?: boolean; onToggle?: () => void } = {}) {
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null)
-  const pathname = usePathname()
+export function Sidebar({
+  isCollapsed = false,
+  onToggle,
+}: { isCollapsed?: boolean; onToggle?: () => void } = {}) {
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const pathname = usePathname();
 
   return (
     <aside
@@ -66,11 +71,18 @@ export function Sidebar({ isCollapsed = false, onToggle }: { isCollapsed?: boole
       )}
     >
       <div className={cn("p-4", isCollapsed && "px-2")}>
-        <div className={cn("mb-6 flex items-center", isCollapsed ? "justify-center" : "justify-between")}>
+        <div
+          className={cn(
+            "mb-6 flex items-center",
+            isCollapsed ? "justify-center" : "justify-between",
+          )}
+        >
           {!isCollapsed && (
             <Link href="/">
               <div>
-                <span className="text-base font-bold text-sidebar-foreground">CampaignHub</span>
+                <span className="text-base font-bold text-sidebar-foreground">
+                  AIT ARC
+                </span>
               </div>
             </Link>
           )}
@@ -84,7 +96,11 @@ export function Sidebar({ isCollapsed = false, onToggle }: { isCollapsed?: boole
                 isCollapsed && "mx-auto",
               )}
             >
-              {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+              {isCollapsed ? (
+                <ChevronRight className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronLeft className="w-3.5 h-3.5" />
+              )}
             </Button>
           )}
         </div>
@@ -98,7 +114,7 @@ export function Sidebar({ isCollapsed = false, onToggle }: { isCollapsed?: boole
             )}
             <nav className="space-y-0.5">
               {menuItems.map((item) => {
-                const isActive = pathname === item.href
+                const isActive = pathname === item.href;
                 return (
                   <Link
                     key={item.label}
@@ -112,7 +128,9 @@ export function Sidebar({ isCollapsed = false, onToggle }: { isCollapsed?: boole
                       isCollapsed && "justify-center",
                     )}
                   >
-                    <item.icon className={cn("w-4 h-4", isCollapsed && "w-4.5 h-4.5")} />
+                    <item.icon
+                      className={cn("w-4 h-4", isCollapsed && "w-4.5 h-4.5")}
+                    />
                     {!isCollapsed && (
                       <>
                         <span className="text-sm">{item.label}</span>
@@ -124,7 +142,7 @@ export function Sidebar({ isCollapsed = false, onToggle }: { isCollapsed?: boole
                       </>
                     )}
                   </Link>
-                )
+                );
               })}
             </nav>
           </div>
@@ -132,10 +150,10 @@ export function Sidebar({ isCollapsed = false, onToggle }: { isCollapsed?: boole
           <div>
             {!isCollapsed && (
               <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wide px-2">
-                AI TOOLS
+                Security Centre
               </p>
             )}
-            <nav className="space-y-0.5">
+            {/* <nav className="space-y-0.5">
               {aiItems.map((item) => {
                 const isActive = pathname === item.href
                 return (
@@ -195,10 +213,10 @@ export function Sidebar({ isCollapsed = false, onToggle }: { isCollapsed?: boole
                   </Link>
                 )
               })}
-            </nav>
+            </nav> */}
           </div>
         </div>
       </div>
     </aside>
-  )
+  );
 }

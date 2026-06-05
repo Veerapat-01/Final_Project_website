@@ -24,6 +24,9 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
   const [filter, setFilter] = useState<"all" | "reachable" | "unreachable">(
     "all",
   );
+  const [showSwapModal, setShowSwapModal] = useState(false);
+  const [swapQuery, setSwapQuery] = useState("");
+  const swapInputRef = useRef<HTMLInputElement>(null);
 
   const total = devices.length;
   const reach = devices.filter((d) => d.reachable === "reachable").length;
@@ -36,6 +39,10 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
 
   const filtered =
     filter === "all" ? devices : devices.filter((d) => d.reachable === filter);
+
+  const swapFiltered = devices.filter((d) =>
+    d.hostname.toLowerCase().includes(swapQuery.toLowerCase()),
+  );
 
   useEffect(() => {
     if (!donutRef.current) return;
@@ -62,6 +69,22 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
     });
   }, [reach, unreach]);
 
+  useEffect(() => {
+    if (showSwapModal) {
+      setTimeout(() => swapInputRef.current?.focus(), 80);
+    } else {
+      setSwapQuery("");
+    }
+  }, [showSwapModal]);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowSwapModal(false);
+    };
+    if (showSwapModal) window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [showSwapModal]);
+
   return (
     <>
       <style>{`
@@ -72,7 +95,6 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
           font-family: 'DM Sans', system-ui, sans-serif;
         }
 
-        /* ── METRIC CARDS ── */
         .metric-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
@@ -132,7 +154,6 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
           line-height: 1;
         }
 
-        /* ── PANEL CARDS ── */
         .panel {
           background: #ffffff;
           border: 1px solid rgba(0,0,0,0.10);
@@ -160,7 +181,6 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
           background: var(--color-border-tertiary);
         }
 
-        /* ── DARK MODE OVERRIDES ── */
         @media (prefers-color-scheme: dark) {
           .metric-card, .panel {
             background: rgba(255,255,255,0.06) !important;
@@ -172,7 +192,6 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
           }
         }
 
-        /* ── WAN EDGE HEALTH ── */
         .wan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
         .legend-item {
           display: flex;
@@ -202,7 +221,6 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
           margin-left: auto;
         }
 
-        /* ── BFD ROW ── */
         .bfd-row {
           display: flex;
           align-items: center;
@@ -225,7 +243,6 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
           color: var(--color-text-primary);
         }
 
-        /* ── PROGRESS BAR ── */
         .pbar-wrap {
           margin-top: 20px;
           padding-top: 16px;
@@ -259,7 +276,6 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
           border-radius: inherit;
         }
 
-        /* ── DEVICE TABLE ── */
         .device-table-panel { }
         .filter-bar { display: flex; gap: 6px; }
         .filter-btn {
@@ -310,7 +326,6 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
         .tbl td.muted { color: var(--color-text-secondary); font-style: italic; }
         .tbl td.mono { font-family: 'DM Mono', monospace; font-size: 12px; }
 
-        /* status badge */
         .status-badge {
           display: inline-flex;
           align-items: center;
@@ -327,7 +342,6 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
         .status-dot.up { background: #1D9E75; }
         .status-dot.down { background: #E24B4A; }
 
-        /* ── DONUT WRAPPER ── */
         .donut-wrap {
           position: relative; width: 160px; height: 160px; flex-shrink: 0;
         }
@@ -347,7 +361,6 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
           margin-top: 3px; letter-spacing: 0.04em; text-transform: uppercase;
         }
 
-        /* ── EMPTY STATE ── */
         .empty-state {
           display: flex; align-items: center; justify-content: center;
           height: 60vh; flex-direction: column; gap: 12px;
@@ -360,6 +373,245 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
           border: 0.5px solid var(--color-border-tertiary);
           display: flex; align-items: center; justify-content: center;
           font-size: 22px; margin-bottom: 4px;
+        }
+
+        .swap-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12px;
+          padding: 5px 14px;
+          border-radius: 100px;
+          border: 0.5px solid #1D9E75;
+          background: transparent;
+          color: #1D9E75;
+          font-weight: 500;
+          cursor: pointer;
+          font-family: 'DM Sans', sans-serif;
+          transition: all 0.15s ease;
+          letter-spacing: 0.01em;
+        }
+        .swap-btn:hover {
+          background: #1D9E75;
+          color: #ffffff;
+        }
+        .swap-btn svg {
+          flex-shrink: 0;
+          transition: transform 0.3s ease;
+        }
+        .swap-btn:hover svg {
+          transform: rotate(180deg);
+        }
+
+        .swap-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,0.35);
+          backdrop-filter: blur(4px);
+          z-index: 999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: overlayIn 0.18s ease both;
+        }
+        @keyframes overlayIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        .swap-modal {
+          background: var(--color-background-primary, #ffffff);
+          border: 1px solid rgba(0,0,0,0.10);
+          border-radius: 20px;
+          padding: 0;
+          width: 520px;
+          max-width: calc(100vw - 32px);
+          max-height: 70vh;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 24px 60px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.10);
+          animation: modalIn 0.22s cubic-bezier(0.23,1,0.32,1) both;
+          overflow: hidden;
+        }
+        @keyframes modalIn {
+          from { opacity: 0; transform: translateY(16px) scale(0.97); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .swap-modal-header {
+          padding: 20px 20px 0;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .swap-modal-title {
+          font-size: 11px;
+          letter-spacing: 0.07em;
+          text-transform: uppercase;
+          font-weight: 600;
+          color: var(--color-text-secondary);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .swap-modal-close {
+          width: 28px; height: 28px;
+          border-radius: 8px;
+          background: var(--color-background-secondary);
+          border: 0.5px solid var(--color-border-tertiary);
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer;
+          font-size: 14px;
+          color: var(--color-text-secondary);
+          transition: all 0.15s ease;
+          line-height: 1;
+        }
+        .swap-modal-close:hover {
+          background: var(--color-text-primary);
+          color: var(--color-background-primary);
+          border-color: var(--color-text-primary);
+        }
+
+        .swap-search-wrap {
+          padding: 14px 20px 12px;
+          position: relative;
+        }
+        .swap-search-icon {
+          position: absolute;
+          left: 32px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--color-text-secondary);
+          pointer-events: none;
+          display: flex;
+          align-items: center;
+        }
+        .swap-search-input {
+          width: 100%;
+          box-sizing: border-box;
+          padding: 10px 14px 10px 38px;
+          border-radius: 10px;
+          border: 1px solid var(--color-border-tertiary);
+          background: var(--color-background-secondary);
+          font-size: 13px;
+          font-family: 'DM Sans', sans-serif;
+          color: var(--color-text-primary);
+          outline: none;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .swap-search-input::placeholder { color: var(--color-text-secondary); opacity: 0.6; }
+        .swap-search-input:focus {
+          border-color: #1D9E75;
+          box-shadow: 0 0 0 3px rgba(29,158,117,0.12);
+        }
+
+        .swap-divider {
+          height: 0.5px;
+          background: var(--color-border-tertiary);
+          margin: 0 20px;
+        }
+
+        .swap-result-count {
+          padding: 8px 20px 4px;
+          font-size: 10.5px;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          font-weight: 600;
+          color: var(--color-text-secondary);
+          opacity: 0.6;
+        }
+
+        .swap-list {
+          overflow-y: auto;
+          flex: 1;
+          padding: 4px 12px 12px;
+        }
+        .swap-list::-webkit-scrollbar { width: 4px; }
+        .swap-list::-webkit-scrollbar-track { background: transparent; }
+        .swap-list::-webkit-scrollbar-thumb { background: var(--color-border-tertiary); border-radius: 4px; }
+
+        .swap-list-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 10px 10px;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: background 0.12s ease;
+          gap: 12px;
+        }
+        .swap-list-item:hover { background: var(--color-background-secondary); }
+        .swap-item-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+        }
+        .swap-item-icon {
+          width: 30px; height: 30px;
+          border-radius: 8px;
+          background: var(--color-background-secondary);
+          border: 0.5px solid var(--color-border-tertiary);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 11px; font-weight: 700;
+          color: var(--color-text-secondary);
+          font-family: 'DM Mono', monospace;
+          flex-shrink: 0;
+          letter-spacing: 0;
+        }
+        .swap-item-hostname {
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--color-text-primary);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .swap-item-ip {
+          font-size: 11px;
+          color: var(--color-text-secondary);
+          font-family: 'DM Mono', monospace;
+          margin-top: 2px;
+        }
+        .swap-item-right {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+        .swap-item-type {
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          color: var(--color-text-secondary);
+          background: var(--color-background-secondary);
+          border: 0.5px solid var(--color-border-tertiary);
+          border-radius: 6px;
+          padding: 2px 7px;
+        }
+
+        .swap-empty {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 40px 20px;
+          gap: 8px;
+          color: var(--color-text-secondary);
+          font-size: 13px;
+          opacity: 0.6;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .swap-modal {
+            background: #1a1a1a !important;
+            border-color: rgba(255,255,255,0.12) !important;
+          }
+          .swap-search-input {
+            background: rgba(255,255,255,0.06) !important;
+            border-color: rgba(255,255,255,0.12) !important;
+          }
         }
 
         @keyframes fadeUp {
@@ -375,29 +627,186 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
         .anim-table { animation: fadeUp 0.45s 0.26s ease both; }
       `}</style>
 
-      <div className="db-root">
+      {showSwapModal && (
+        <div className="swap-overlay" onClick={() => setShowSwapModal(false)}>
+          <div className="swap-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="swap-modal-header">
+              <div className="swap-modal-title">
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M2 5h10M9 2l3 3-3 3M14 11H4M7 8l-3 3 3 3"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Swap Device
+              </div>
+              <button
+                className="swap-modal-close"
+                onClick={() => setShowSwapModal(false)}
+              >
+                ✕
+              </button>
+            </div>
 
-        {/* ── METRIC CARDS ── */}
+            <div className="swap-search-wrap">
+              <span className="swap-search-icon">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle
+                    cx="6.5"
+                    cy="6.5"
+                    r="4.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                  <path
+                    d="M10 10l3.5 3.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
+              <input
+                ref={swapInputRef}
+                className="swap-search-input"
+                placeholder="Search hostname..."
+                value={swapQuery}
+                onChange={(e) => setSwapQuery(e.target.value)}
+              />
+            </div>
+
+            <div className="swap-divider" />
+
+            <div className="swap-result-count">
+              {swapFiltered.length} device{swapFiltered.length !== 1 ? "s" : ""}{" "}
+              found
+            </div>
+
+            <div className="swap-list">
+              {swapFiltered.length === 0 ? (
+                <div className="swap-empty">
+                  <svg
+                    width="28"
+                    height="28"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle
+                      cx="11"
+                      cy="11"
+                      r="7"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    />
+                    <path
+                      d="M16.5 16.5L21 21"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  No devices matched
+                </div>
+              ) : (
+                swapFiltered.map((d, idx) => (
+                  <div key={idx} className="swap-list-item">
+                    <div className="swap-item-left">
+                      <div className="swap-item-icon">
+                        {d.type?.slice(0, 2).toUpperCase() ?? "—"}
+                      </div>
+                      <div>
+                        <div className="swap-item-hostname">{d.hostname}</div>
+                        <div className="swap-item-ip">{d.systemIp}</div>
+                      </div>
+                    </div>
+                    <div className="swap-item-right">
+                      <span className="swap-item-type">{d.type}</span>
+                      <span
+                        className={`status-badge ${d.reachable === "reachable" ? "up" : "down"}`}
+                      >
+                        <span
+                          className={`status-dot ${d.reachable === "reachable" ? "up" : "down"}`}
+                        />
+                        {d.reachable === "reachable" ? "Up" : "Down"}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="db-root">
         <div className="metric-grid">
           {[
-            { label: "Total Devices", value: total, color: "var(--color-text-primary)", bar: "var(--color-border-tertiary)", icon: "DEV", sub: "monitored", cls: "anim-0" },
-            { label: "Reachable", value: reach, color: "#1D9E75", bar: "linear-gradient(90deg,#1D9E75,#5DCAA5)", icon: "UP", sub: "online now", cls: "anim-1" },
-            { label: "Unreachable", value: unreach, color: "#E24B4A", bar: "linear-gradient(90deg,#E24B4A,#F09595)", icon: "DN", sub: "offline", cls: "anim-2" },
-            { label: "Sites", value: sites, color: "var(--color-text-primary)", bar: "linear-gradient(90deg,#7F77DD,#AFA9EC)", icon: "LOC", sub: "locations", cls: "anim-3" },
+            {
+              label: "Total Devices",
+              value: total,
+              color: "var(--color-text-primary)",
+              bar: "var(--color-border-tertiary)",
+              icon: "DEV",
+              sub: "monitored",
+              cls: "anim-0",
+            },
+            {
+              label: "Reachable",
+              value: reach,
+              color: "#1D9E75",
+              bar: "linear-gradient(90deg,#1D9E75,#5DCAA5)",
+              icon: "UP",
+              sub: "online now",
+              cls: "anim-1",
+            },
+            {
+              label: "Unreachable",
+              value: unreach,
+              color: "#E24B4A",
+              bar: "linear-gradient(90deg,#E24B4A,#F09595)",
+              icon: "DN",
+              sub: "offline",
+              cls: "anim-2",
+            },
+            {
+              label: "Sites",
+              value: sites,
+              color: "var(--color-text-primary)",
+              bar: "linear-gradient(90deg,#7F77DD,#AFA9EC)",
+              icon: "LOC",
+              sub: "locations",
+              cls: "anim-3",
+            },
           ].map((m) => (
             <div key={m.label} className={`metric-card ${m.cls}`}>
               <div className="accent-bar" style={{ background: m.bar }} />
               <div className="m-label">{m.label}</div>
-              <div className="m-value" style={{ color: m.color }}>{m.value}</div>
+              <div className="m-value" style={{ color: m.color }}>
+                {m.value}
+              </div>
               <div className="m-sub">{m.sub}</div>
               <div className="m-icon">{m.icon}</div>
             </div>
           ))}
         </div>
 
-        {/* ── WAN HEALTH + BFD ── */}
         <div className="wan-grid">
-          {/* WAN Edge Health */}
           <div className="panel anim-panel-1">
             <div className="panel-title">WAN Edge Health</div>
             <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
@@ -414,7 +823,14 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
                   <div className="donut-sub">WAN Edges</div>
                 </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px", flex: 1 }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  flex: 1,
+                }}
+              >
                 {[
                   { color: "green", label: "Reachable", count: reach },
                   { color: "red", label: "Unreachable", count: unreach },
@@ -429,16 +845,35 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
             </div>
           </div>
 
-          {/* BFD Connectivity */}
           <div className="panel anim-panel-2">
             <div className="panel-title">Site BFD Connectivity ({sites})</div>
             {[
-              { label: "Reachable", count: reach, bg: "#EAF3DE", color: "#3B6D11", letter: "R" },
-              { label: "Partial", count: partial, bg: "#FAEEDA", color: "#854F0B", letter: "P" },
-              { label: "Unreachable", count: unreach, bg: "#FCEBEB", color: "#A32D2D", letter: "U" },
+              {
+                label: "Reachable",
+                count: reach,
+                bg: "#EAF3DE",
+                color: "#3B6D11",
+                letter: "R",
+              },
+              {
+                label: "Partial",
+                count: partial,
+                bg: "#FAEEDA",
+                color: "#854F0B",
+                letter: "P",
+              },
+              {
+                label: "Unreachable",
+                count: unreach,
+                bg: "#FCEBEB",
+                color: "#A32D2D",
+                letter: "U",
+              },
             ].map((row) => (
               <div key={row.label} className="bfd-row">
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                >
                   <span
                     className="bfd-pill"
                     style={{ background: row.bg, color: row.color }}
@@ -462,11 +897,40 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
           </div>
         </div>
 
-        {/* ── DEVICE TABLE ── */}
         <div className="panel device-table-panel anim-table">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-            <div className="panel-title" style={{ margin: 0, flex: 1 }}>Device List</div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "16px",
+            }}
+          >
+            <div className="panel-title" style={{ margin: 0, flex: 1 }}>
+              Device List
+            </div>
             <div className="filter-bar">
+              <button
+                className="swap-btn"
+                onClick={() => setShowSwapModal(true)}
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M2 5h10M9 2l3 3-3 3M14 11H4M7 8l-3 3 3 3"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Swap
+              </button>
               {(["all", "reachable", "unreachable"] as const).map((f) => (
                 <button
                   key={f}
@@ -492,7 +956,15 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
               </colgroup>
               <thead>
                 <tr>
-                  {["Hostname", "System IP", "Site ID", "Type", "ge0/1 IP", "ge0/2 IP", "Status"].map((h) => (
+                  {[
+                    "Hostname",
+                    "System IP",
+                    "Site ID",
+                    "Type",
+                    "ge0/1 IP",
+                    "ge0/2 IP",
+                    "Status",
+                  ].map((h) => (
                     <th key={h}>{h}</th>
                   ))}
                 </tr>
@@ -518,12 +990,29 @@ function DeviceDashboard({ devices }: { devices: Device[] }) {
                       <td style={{ fontWeight: 500 }}>{d.hostname}</td>
                       <td className="mono">{d.systemIp}</td>
                       <td>{d.siteId}</td>
-                      <td style={{ textTransform: "uppercase", fontSize: "11px", letterSpacing: "0.04em", fontWeight: 600 }}>{d.type}</td>
-                      <td className={cn("mono", !d.ge01 && "muted")}>{d.ge01 ?? "—"}</td>
-                      <td className={cn("mono", !d.ge02 && "muted")}>{d.ge02 ?? "—"}</td>
+                      <td
+                        style={{
+                          textTransform: "uppercase",
+                          fontSize: "11px",
+                          letterSpacing: "0.04em",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {d.type}
+                      </td>
+                      <td className={cn("mono", !d.ge01 && "muted")}>
+                        {d.ge01 ?? "—"}
+                      </td>
+                      <td className={cn("mono", !d.ge02 && "muted")}>
+                        {d.ge02 ?? "—"}
+                      </td>
                       <td>
-                        <span className={`status-badge ${d.reachable === "reachable" ? "up" : "down"}`}>
-                          <span className={`status-dot ${d.reachable === "reachable" ? "up" : "down"}`} />
+                        <span
+                          className={`status-badge ${d.reachable === "reachable" ? "up" : "down"}`}
+                        >
+                          <span
+                            className={`status-dot ${d.reachable === "reachable" ? "up" : "down"}`}
+                          />
                           {d.reachable === "reachable" ? "Up" : "Down"}
                         </span>
                       </td>
