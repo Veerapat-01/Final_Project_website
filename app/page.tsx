@@ -4,49 +4,317 @@ import { useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 
+/* ── Toast state type ── */
+type ToastType = "success" | "error" | null;
+
+function Toast({ type, onClose }: { type: ToastType; onClose: () => void }) {
+  if (!type) return null;
+
+  const isSuccess = type === "success";
+
+  return (
+    <div className="toast-backdrop" onClick={onClose}>
+      <div
+        className={`toast-card ${isSuccess ? "toast-success" : "toast-error"}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Glow ring */}
+        <div className="toast-glow" />
+
+        {/* Icon */}
+        <div
+          className={`toast-icon-wrap ${isSuccess ? "icon-success" : "icon-error"}`}
+        >
+          {isSuccess ? (
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          ) : (
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          )}
+        </div>
+
+        {/* Text */}
+        <div className="toast-text">
+          <div className="toast-title">
+            {isSuccess ? "Login successful" : "Login failed"}
+          </div>
+          <div className="toast-sub">
+            {isSuccess
+              ? "Welcome back! Redirecting you now…"
+              : "Invalid email or password. Please try again."}
+          </div>
+        </div>
+
+        {/* Close button */}
+        <button className="toast-close" onClick={onClose} aria-label="Close">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+
+        {/* Auto-dismiss progress bar */}
+        <div
+          className={`toast-progress ${isSuccess ? "progress-success" : "progress-error"}`}
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function Page() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
+  const [toast, setToast] = useState<ToastType>(null);
   const router = useRouter();
+
+  function closeToast() {
+    setToast(null);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => setLoading(false), 1800);
     try {
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_URL}/api/POST/getlogin`,
-        {
-          "email": email,
-          "password": password
-        }
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_URL}/api/POST/getlogin`,
+        { email, password },
       );
       if (response.status === 200) {
         const data = response.data[0];
         if (data.staff_email === email && data.staff_password === password) {
-          alert("Login successful!");
-          router.push("/dashboard");
-
+          setToast("success");
+          setTimeout(() => {
+            router.push("/dashboard");
+          }, 2000);
         } else {
-          alert("Invalid email or password.");
+          setToast("error");
         }
       } else {
-        alert("Login failed: " + response.data.error);
+        setToast("error");
       }
     } catch (error) {
+      setToast("error");
+    } finally {
+      setLoading(false);
     }
 
-
+    /* Auto-dismiss error after 4s */
+    setTimeout(() => setToast(null), 4000);
   }
 
   return (
-    <div className="min-h-screen flex" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div
+      className="min-h-screen flex"
+      style={{ fontFamily: "'DM Sans', sans-serif" }}
+    >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
+        /* ─────────────────────────────────────────
+           TOAST
+        ───────────────────────────────────────── */
+        .toast-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          display: flex;
+          align-items: flex-start;
+          justify-content: center;
+          padding-top: 32px;
+          pointer-events: none;
+        }
+
+        .toast-card {
+          pointer-events: all;
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          min-width: 360px;
+          max-width: 440px;
+          padding: 20px 20px 28px 20px;
+          border-radius: 18px;
+          overflow: hidden;
+          animation: toastIn 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+          box-shadow:
+            0 24px 64px rgba(0,0,0,0.18),
+            0 8px 24px rgba(0,0,0,0.12),
+            0 0 0 1px rgba(255,255,255,0.12) inset;
+        }
+
+        .toast-success {
+          background: linear-gradient(135deg, #0a2318 0%, #0d2e1e 60%, #0f3823 100%);
+          border: 1px solid rgba(29,158,117,0.35);
+        }
+
+        .toast-error {
+          background: linear-gradient(135deg, #2a0a0a 0%, #2e0d0d 60%, #381010 100%);
+          border: 1px solid rgba(226,75,74,0.35);
+        }
+
+        .toast-glow {
+          position: absolute;
+          top: -40px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 200px;
+          height: 80px;
+          border-radius: 50%;
+          filter: blur(32px);
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        .toast-success .toast-glow {
+          background: rgba(29,158,117,0.25);
+        }
+
+        .toast-error .toast-glow {
+          background: rgba(226,75,74,0.25);
+        }
+
+        .toast-icon-wrap {
+          position: relative;
+          z-index: 1;
+          width: 52px;
+          height: 52px;
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .icon-success {
+          background: rgba(29,158,117,0.18);
+          color: #1D9E75;
+          border: 1px solid rgba(29,158,117,0.3);
+        }
+
+        .icon-error {
+          background: rgba(226,75,74,0.18);
+          color: #E24B4A;
+          border: 1px solid rgba(226,75,74,0.3);
+        }
+
+        .toast-text {
+          flex: 1;
+          position: relative;
+          z-index: 1;
+        }
+
+        .toast-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: #ffffff;
+          margin-bottom: 3px;
+          letter-spacing: -0.1px;
+        }
+
+        .toast-sub {
+          font-size: 13px;
+          color: rgba(255,255,255,0.55);
+          line-height: 1.5;
+          font-weight: 400;
+        }
+
+        .toast-close {
+          position: relative;
+          z-index: 1;
+          background: rgba(255,255,255,0.07);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 8px;
+          width: 30px;
+          height: 30px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          color: rgba(255,255,255,0.4);
+          flex-shrink: 0;
+          align-self: flex-start;
+          transition: background 0.15s, color 0.15s;
+        }
+
+        .toast-close:hover {
+          background: rgba(255,255,255,0.12);
+          color: rgba(255,255,255,0.8);
+        }
+
+        /* Progress bar at bottom */
+        .toast-progress {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          height: 3px;
+          border-radius: 0 0 18px 18px;
+          animation: progressShrink 4s linear forwards;
+        }
+
+        .progress-success {
+          background: linear-gradient(90deg, #1D9E75, #5DCAA5);
+          animation-duration: 2s;
+        }
+
+        .progress-error {
+          background: linear-gradient(90deg, #E24B4A, #F09595);
+          animation-duration: 4s;
+        }
+
+        @keyframes progressShrink {
+          from { width: 100%; }
+          to   { width: 0%; }
+        }
+
+        @keyframes toastIn {
+          from {
+            opacity: 0;
+            transform: translateY(-20px) scale(0.94);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        /* ─────────────────────────────────────────
+           ORIGINAL PAGE STYLES (unchanged)
+        ───────────────────────────────────────── */
         .left-panel {
           flex: 1;
           display: flex;
@@ -171,9 +439,7 @@ export default function Page() {
           margin-bottom: 16px;
         }
 
-        .hero-title span {
-          color: #e8601f;
-        }
+        .hero-title span { color: #e8601f; }
 
         .hero-desc {
           font-size: 15px;
@@ -184,10 +450,7 @@ export default function Page() {
           margin-bottom: 36px;
         }
 
-        .stats-row {
-          display: flex;
-          gap: 0;
-        }
+        .stats-row { display: flex; gap: 0; }
 
         .stat-item {
           padding-right: 28px;
@@ -230,9 +493,7 @@ export default function Page() {
           letter-spacing: 0.3px;
         }
 
-        .form-header {
-          margin-bottom: 36px;
-        }
+        .form-header { margin-bottom: 36px; }
 
         .form-title {
           font-size: 26px;
@@ -248,9 +509,7 @@ export default function Page() {
           font-weight: 400;
         }
 
-        .form-group {
-          margin-bottom: 18px;
-        }
+        .form-group { margin-bottom: 18px; }
 
         .form-label {
           display: block;
@@ -261,9 +520,7 @@ export default function Page() {
           letter-spacing: 0.1px;
         }
 
-        .input-wrap {
-          position: relative;
-        }
+        .input-wrap { position: relative; }
 
         .form-input {
           width: 100%;
@@ -284,9 +541,7 @@ export default function Page() {
           box-shadow: 0 0 0 3px rgba(232,96,31,0.1);
         }
 
-        .form-input.has-icon {
-          padding-right: 44px;
-        }
+        .form-input.has-icon { padding-right: 44px; }
 
         .input-icon {
           position: absolute;
@@ -339,45 +594,6 @@ export default function Page() {
         .submit-btn:active { transform: scale(0.99); }
         .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
 
-        .divider {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin: 24px 0;
-        }
-
-        .divider-line {
-          flex: 1;
-          height: 1px;
-          background: #eaecf0;
-        }
-
-        .divider-text {
-          font-size: 12px;
-          color: #b0bac8;
-          font-weight: 400;
-        }
-
-        .sso-btn {
-          width: 100%;
-          height: 46px;
-          background: #fff;
-          color: #3d4a5c;
-          font-size: 14px;
-          font-weight: 500;
-          border: 1.5px solid #dde3ec;
-          border-radius: 10px;
-          cursor: pointer;
-          font-family: inherit;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 9px;
-          transition: border-color 0.18s, background 0.18s;
-        }
-
-        .sso-btn:hover { background: #f8f9fb; border-color: #c8d0dc; }
-
         .spinner {
           width: 18px;
           height: 18px;
@@ -395,16 +611,38 @@ export default function Page() {
         }
       `}</style>
 
+      {/* ── TOAST ── */}
+      <Toast type={toast} onClose={closeToast} />
+
       {/* Left panel — building bg */}
       <div className="left-panel">
-        <img className="left-bg-img" src="/building.jpg" alt="AIT office building" />
+        <img
+          className="left-bg-img"
+          src="/building.jpg"
+          alt="AIT office building"
+        />
         <div className="left-overlay" />
 
         <div className="logo-area">
           <div className="logo-icon">
             <svg width="22" height="22" viewBox="0 0 36 36">
-              <ellipse cx="15" cy="18" rx="7" ry="10" fill="none" stroke="#fff" strokeWidth="2.5" />
-              <ellipse cx="21" cy="18" rx="7" ry="10" fill="#fff" opacity="0.9" />
+              <ellipse
+                cx="15"
+                cy="18"
+                rx="7"
+                ry="10"
+                fill="none"
+                stroke="#fff"
+                strokeWidth="2.5"
+              />
+              <ellipse
+                cx="21"
+                cy="18"
+                rx="7"
+                ry="10"
+                fill="#fff"
+                opacity="0.9"
+              />
             </svg>
           </div>
           <div>
@@ -419,11 +657,7 @@ export default function Page() {
             <span className="badge-text">SD-WAN AUTOMATED RECOVERY CENTRE</span>
           </div>
 
-          {/* <h1 className="hero-title">
-            Replace Failed<br />
-            Routers <span>Automatically</span>
-          </h1> */}
-           <h1 className="hero-title">
+          <h1 className="hero-title">
             AIT <span>ARC</span>
           </h1>
 
@@ -451,8 +685,23 @@ export default function Page() {
         <div className="footer-bar">
           <div className="logo-icon" style={{ width: 20, height: 20 }}>
             <svg width="12" height="12" viewBox="0 0 36 36">
-              <ellipse cx="15" cy="18" rx="7" ry="10" fill="none" stroke="#fff" strokeWidth="3" />
-              <ellipse cx="21" cy="18" rx="7" ry="10" fill="#fff" opacity="0.9" />
+              <ellipse
+                cx="15"
+                cy="18"
+                rx="7"
+                ry="10"
+                fill="none"
+                stroke="#fff"
+                strokeWidth="3"
+              />
+              <ellipse
+                cx="21"
+                cy="18"
+                rx="7"
+                ry="10"
+                fill="#fff"
+                opacity="0.9"
+              />
             </svg>
           </div>
           <span className="footer-text">AIT Professional ICT Solutions</span>
@@ -499,44 +748,47 @@ export default function Page() {
                 aria-label={showPass ? "Hide password" : "Show password"}
               >
                 {showPass ? (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  >
                     <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
                     <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
                     <line x1="1" y1="1" x2="23" y2="23" />
                   </svg>
                 ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  >
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                     <circle cx="12" cy="12" r="3" />
                   </svg>
                 )}
               </button>
             </div>
-            {/* <a className="forgot-link">Forgot password?</a> */}
           </div>
 
           <button className="submit-btn" type="submit" disabled={loading}>
             {loading ? (
-              <><div className="spinner" /> Signing in...</>
+              <>
+                <div className="spinner" /> Signing in...
+              </>
             ) : (
               "Sign in"
             )}
           </button>
         </form>
-
-        {/* <div className="divider">
-          <div className="divider-line" />
-          <span className="divider-text">or continue with</span>
-          <div className="divider-line" />
-        </div> */}
-
-        {/* <button className="sso-btn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3d4a5c" strokeWidth="1.8" strokeLinecap="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-          Sign in with SSO
-        </button> */}
       </div>
     </div>
   );
