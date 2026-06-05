@@ -1765,14 +1765,6 @@ export default function DashboardPage() {
 
             ge01Ip = ge01?.["ip-address"] ?? null;
             ge02Ip = ge02?.["ip-address"] ?? null;
-          } catch (error) {
-            console.error(
-              `Device ${i} (${deviceIds[i]}) getInterfaces failed`,
-              error,
-            );
-          }
-
-          try {
             const responseCheck = await axios.post(
               `${process.env.NEXT_PUBLIC_URL}/api/POST/getdevicebyhostname`,
               { hostname: hostnames[i] },
@@ -1791,16 +1783,49 @@ export default function DashboardPage() {
                 },
               );
               if (responsesave.status === 200) {
-                console.log("Device info saved successfully");
+                // console.log("Device info saved successfully");
               } else {
-                console.error("Failed to save device info");
+                // console.error("Failed to save device info");
               }
             } else {
-              console.log(`Device ${hostnames[i]} already exists, skipping`);
+              // console.log(`Device ${hostnames[i]} already exists, skipping`);
             }
           } catch (error) {
-            console.error(`Device ${i} (${deviceIds[i]}) save failed`, error);
+            console.error(
+              `Device ${i} (${deviceIds[i]}) getInterfaces failed`,
+              error,
+            );
           }
+
+          // try {
+          //   const responseCheck = await axios.post(
+          //     `${process.env.NEXT_PUBLIC_URL}/api/POST/getdevicebyhostname`,
+          //     { hostname: hostnames[i] },
+          //   );
+
+          //   if (responseCheck.data.length === 0) {
+          //     const responsesave = await axios.post(
+          //       `${process.env.NEXT_PUBLIC_URL}/api/POST/pushdeviceinfo`,
+          //       {
+          //         system_ip: systemip[i],
+          //         hostname: hostnames[i],
+          //         siteid: siteIds[i],
+          //         ipad1: ge01Ip,
+          //         ipad2: ge02Ip,
+          //         reachable: reachability[i],
+          //       },
+          //     );
+          //     if (responsesave.status === 200) {
+          //       console.log("Device info saved successfully");
+          //     } else {
+          //       console.error("Failed to save device info");
+          //     }
+          //   } else {
+          //     console.log(`Device ${hostnames[i]} already exists, skipping`);
+          //   }
+          // } catch (error) {
+          //   console.error(`Device ${i} (${deviceIds[i]}) save failed`, error);
+          // }
 
           setDevices((prev) => [
             ...prev,
