@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Eye, EyeOff, Server, PlugZap, Lock, AlertCircle } from "lucide-react"
+import { Eye, EyeOff, Server, PlugZap, Lock, AlertCircle, X } from "lucide-react"
 
 interface Credentials {
   ip: string
@@ -11,9 +11,10 @@ interface Credentials {
 
 interface VManageConnectionModalProps {
   onConnect: (credentials: Credentials) => void
+  onClose?: () => void
 }
 
-export function VManageConnectionModal({ onConnect }: VManageConnectionModalProps) {
+export function VManageConnectionModal({ onConnect, onClose }: VManageConnectionModalProps) {
   const [ip, setIp] = useState("")
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
@@ -50,10 +51,22 @@ export function VManageConnectionModal({ onConnect }: VManageConnectionModalProp
     setErrors((prev) => ({ ...prev, [field]: undefined }))
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}
+    >
       <div className="relative w-full max-w-sm mx-4 bg-card border border-border rounded-2xl shadow-2xl p-6 animate-in slide-in-from-bottom-4 zoom-in-95 duration-300">
 
-        {/* Icon */}
+        {/* Close button */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-150"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
         <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-5">
           <Server className="w-5 h-5 text-blue-500" />
         </div>

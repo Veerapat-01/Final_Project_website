@@ -1,2 +1,4 @@
 allowBuilds:
   sharp: false
+minimumReleaseAgeExclude:
+  - baseline-browser-mapping@2.10.34

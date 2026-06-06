@@ -20,32 +20,32 @@ interface Device {
 }
 
 const lightTheme = {
-  "--theme-bg-base": "#F0F4F8",
-  "--theme-bg-primary": "#FFFFFF",
-  "--theme-bg-secondary": "#E8EEF4",
-  "--theme-bg-card": "#FFFFFF",
-  "--theme-bg-glass": "rgba(255,255,255,0.85)",
-  "--theme-border": "rgba(99,153,34,0.15)",
-  "--theme-border-strong": "rgba(99,153,34,0.3)",
+  "--theme-bg-base": "linear-gradient(145deg, #f0faf5 0%, #eaf6f0 35%, #f4f0ff 70%, #eef5ff 100%)",
+  "--theme-bg-primary": "#ffffff",
+  "--theme-bg-secondary": "#e6f2eb",
+  "--theme-bg-card": "#ffffff",
+  "--theme-bg-glass": "rgba(255,255,255,0.88)",
+  "--theme-border": "rgba(29,158,117,0.14)",
+  "--theme-border-strong": "rgba(29,158,117,0.32)",
   "--theme-text-primary": "#0D1B0A",
-  "--theme-text-secondary": "#4A6741",
-  "--theme-text-muted": "#7A9E6F",
+  "--theme-text-secondary": "#3A5F38",
+  "--theme-text-muted": "#6A8E67",
   "--theme-accent-green": "#1D9E75",
   "--theme-accent-red": "#E24B4A",
   "--theme-accent-light": "#5DCAA5",
-  "--theme-accent-glow": "rgba(29,158,117,0.18)",
+  "--theme-accent-glow": "rgba(29,158,117,0.14)",
   "--theme-glow-ring-green": "rgba(29,158,117,0.15)",
   "--theme-glow-ring-red": "rgba(226,75,74,0.15)",
-  "--theme-badge-up-bg": "#EAF3DE",
-  "--theme-badge-up-color": "#3B6D11",
-  "--theme-badge-up-border": "rgba(29,158,117,0.15)",
+  "--theme-badge-up-bg": "#dcf5ea",
+  "--theme-badge-up-color": "#1a6b44",
+  "--theme-badge-up-border": "rgba(29,158,117,0.2)",
   "--theme-badge-down-bg": "#FCEBEB",
   "--theme-badge-down-color": "#A32D2D",
   "--theme-badge-down-border": "rgba(226,75,74,0.15)",
-  "--theme-grid-line": "rgba(29,158,117,0.06)",
-  "--theme-shadow": "0 4px 24px rgba(29,158,117,0.08), 0 1px 4px rgba(0,0,0,0.04)",
-  "--theme-shadow-card": "0 2px 12px rgba(29,158,117,0.1)",
-  "--theme-filter-active-bg": "#E8F5E8",
+  "--theme-grid-line": "rgba(29,158,117,0.07)",
+  "--theme-shadow": "0 4px 24px rgba(29,158,117,0.1), 0 1px 6px rgba(0,0,0,0.06), 0 0 0 1px rgba(29,158,117,0.04)",
+  "--theme-shadow-card": "0 2px 16px rgba(29,158,117,0.12), 0 1px 4px rgba(0,0,0,0.05)",
+  "--theme-filter-active-bg": "#dcf5ea",
   "--theme-filter-active-color": "#1D9E75",
   "--theme-filter-btn-glow": "none",
   "--theme-scan-line": "rgba(29,158,117,0.03)",
@@ -936,7 +936,7 @@ export default function DashboardPage() {
   const [isConnected, setIsConnected] = useState(false);
   const [chartReady, setChartReady] = useState(false);
   const [devices, setDevices] = useState<Device[]>([]);
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
 
   const theme = isDark ? darkTheme : lightTheme;
@@ -1084,7 +1084,7 @@ export default function DashboardPage() {
 
       <ThemeToggle isDark={isDark} onToggle={() => setIsDark(!isDark)} />
 
-      {showModal && <VManageConnectionModal onConnect={handleConnect} />}
+      {showModal && <VManageConnectionModal onConnect={handleConnect} onClose={() => setShowModal(false)} />}
 
       <div className="hidden lg:block">
         <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
@@ -1096,21 +1096,73 @@ export default function DashboardPage() {
         ) : connectionError ? (
           <ConnectionErrorBanner onReconnect={handleReconnect} />
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh", gap: "16px" }}>
-            <div
-              style={{
-                width: "40px",
-                height: "40px",
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh", gap: "20px" }}>
+            {/* Animated ring */}
+            <div style={{ position: "relative", width: "72px", height: "72px" }}>
+              <div style={{
+                position: "absolute", inset: 0,
                 borderRadius: "50%",
                 border: "2px solid var(--theme-border)",
                 borderTop: "2px solid var(--theme-accent-green)",
-                animation: "spin 1s linear infinite",
-              }}
-            />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "11px", letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--theme-text-muted)" }}>
-              Awaiting Connection...
+                animation: "spin 1.2s linear infinite",
+              }} />
+              <div style={{
+                position: "absolute", inset: "10px",
+                borderRadius: "50%",
+                border: "2px solid transparent",
+                borderTop: "2px solid var(--theme-accent-light)",
+                animation: "spin 1.8s linear infinite reverse",
+                opacity: 0.5,
+              }} />
+              <div style={{
+                position: "absolute", inset: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: "var(--theme-accent-green)",
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M5 12.5C5 8.91 7.91 6 11.5 6c2.17 0 4.08 1.03 5.3 2.63M19 11.5C19 15.09 16.09 18 12.5 18c-2.17 0-4.08-1.03-5.3-2.63" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M16.5 6l.3 2.63M7.5 18l-.3-2.63" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </div>
             </div>
+
+            {/* Text */}
+            <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: "6px" }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "11px", letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--theme-text-muted)" }}>
+                Awaiting Connection
+              </div>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "13px", color: "var(--theme-text-muted)", opacity: 0.7 }}>
+                No vManage controller connected
+              </div>
+            </div>
+
+            {/* Connect button */}
+            <button
+              onClick={() => setShowModal(true)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: "8px",
+                padding: "10px 22px",
+                borderRadius: "10px",
+                border: "none",
+                background: "var(--theme-accent-green)",
+                color: "#fff",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: "13px",
+                fontWeight: 600,
+                cursor: "pointer",
+                letterSpacing: "0.01em",
+                boxShadow: "0 4px 14px var(--theme-accent-glow)",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 6px 20px var(--theme-accent-glow)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 4px 14px var(--theme-accent-glow)"; }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                <path d="M5 12.5C5 8.91 7.91 6 11.5 6c2.17 0 4.08 1.03 5.3 2.63M19 11.5C19 15.09 16.09 18 12.5 18c-2.17 0-4.08-1.03-5.3-2.63" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M16.5 6l.3 2.63M7.5 18l-.3-2.63" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              Connect to vManage
+            </button>
           </div>
         )}
       </main>
