@@ -253,7 +253,7 @@ function ConnectionErrorBanner({ onReconnect }: { onReconnect: () => void }) {
               fontFamily: "'Syne', sans-serif",
               fontSize: "15px",
               fontWeight: 700,
-              color: "var(--theme-text-primary)",
+              color: "#C8F0D0",
               letterSpacing: "-0.01em",
             }}
           >
@@ -345,6 +345,7 @@ function DeviceDashboard({
   const swapTargetInputRef = useRef<HTMLInputElement>(null);
   const [targetDevice, setTargetDevice] = useState<Device | null>(null);
   const [showPreconfigModal, setShowPreconfigModal] = useState(false);
+  const [preconfigText, setPreconfigText] = useState("");
 
   const total = devices.length;
   const reach = devices.filter((d) => d.reachable === "reachable").length;
@@ -565,7 +566,6 @@ function DeviceDashboard({
                         className={styles.swapItemActionBtn}
                         onClick={(e) => {
                           e.stopPropagation();
-                          // console.log(`[Swap] Source device: ${d.hostname}`);
                           setSelectedDevice(d);
                           setShowSwapModal(false);
                           setShowSwapTargetModal(true);
@@ -730,22 +730,66 @@ function DeviceDashboard({
                       <button
                         className={styles.swapItemActionBtn}
                         onClick={async (e) => {
+                          let temp = "";
                           e.stopPropagation();
-                          // console.log(
-                          //   `[Swap] Source device: ${selectedDevice?.hostname}`,
-                          // );
-                          // console.log(`[Swap] Target device: ${d.hostname}`);
                           const response = await axios.post(
                             `${process.env.NEXT_PUBLIC_URL}/api/POST/getdevicebyhostname`,
                             {
                               hostname: selectedDevice?.hostname,
                             },
                           );
+
                           if (response.status === 200) {
-                            const getdevicedata = response.data;
-                            
-                           
+                            const getdevicedata = response.data[0];
+
+                            if (
+                              getdevicedata.roles === "vmanage" ||
+                              getdevicedata.roles === "vsmart"
+                            ) {
+                              temp += "config\n";
+                              temp += "system\n";
+                              temp += `${getdevicedata.hostname}\n`;
+                              temp += `system-ip ${getdevicedata.systemip}\n`;
+                              temp += `site-id ${getdevicedata.siteid}\n`;
+                              temp += `sp-organization-name "BAAC"\n`;
+                              temp += `organization-name "BAAC"\n`;
+                              temp += `vbond 172.26.155.17\n`;
+                              temp += `! \n`;
+                              temp += `vpn 0 \n`;
+                              temp += `int eth0\n`;
+                              temp += ` ip address ${getdevicedata.eth_0} \n`;
+                              temp += `no shutdown \n`;
+                            } else {
+                              temp += "config\n";
+                              temp += "system\n";
+                              temp += `host-name ${getdevicedata.hostname}\n`;
+                              temp += `system-ip ${getdevicedata.systemip}\n`;
+                              temp += `site-id ${getdevicedata.siteid}\n`;
+                              temp += `sp-organization-name "BAAC"\n`;
+                              temp += `organization-name "BAAC"\n`;
+                              temp += `vbond 172.26.155.17\n`;
+                              temp += `! \n`;
+                              temp += `vpn 0\n`;
+                              temp += `dns 172.26.18.32 primary\n`;
+                              temp += `dns 8.8.8.8 secondary\n`;
+                              temp += `int ge0/1 \n`;
+                              temp += `ip address ${getdevicedata.g_01}\n`;
+                              temp += `no shutdown\n`;
+                              temp += `tunnel encap ipsec\n`;
+                              temp += `color private2\n`;
+                              temp += `! \n`;
+                              temp += `int ge0/2 \n`;
+                              temp += `ip address ${getdevicedata.g_02} \n`;
+                              temp += `no shutdown\n`;
+                              temp += `tunnel encap ipsec\n`;
+                              temp += `color private3\n`;
+                              temp += `! \n`;
+                              temp += `! \n`;
+                            }
+
+                            console.log(temp);
                           }
+                          setPreconfigText(temp);
                           setTargetDevice(d);
                           setShowSwapTargetModal(false);
                           setShowPreconfigModal(true);
@@ -769,6 +813,7 @@ function DeviceDashboard({
             setShowPreconfigModal(false);
             setSelectedDevice(null);
             setTargetDevice(null);
+            setPreconfigText("");
           }}
         >
           <div
@@ -803,6 +848,7 @@ function DeviceDashboard({
                   setShowPreconfigModal(false);
                   setSelectedDevice(null);
                   setTargetDevice(null);
+                  setPreconfigText("");
                 }}
               >
                 ✕
@@ -870,63 +916,35 @@ function DeviceDashboard({
                   <button
                     className={styles.preconfigCmdCopy}
                     onClick={() => {
-                      const cmd = `configure\nsystem\n  host-name     ${targetDevice.hostname}\n  system-ip     ${targetDevice.systemIp}\n  site-id       ${targetDevice.siteId}\n!\nrequest device swap\n  from-host     ${selectedDevice.hostname}\n  from-ip       ${selectedDevice.systemIp}\n  to-host       ${targetDevice.hostname}\n  to-ip         ${targetDevice.systemIp}\n!`;
-                      navigator.clipboard.writeText(cmd);
+                      navigator.clipboard.writeText(preconfigText);
                     }}
                   >
                     Copy
                   </button>
                 </div>
                 <div className={styles.preconfigCmdBody}>
-                  <span
-                    className={styles.cmdComment}
-                  >{`! Preconfigure — ${new Date().toISOString().slice(0, 10)}\n`}</span>
-                  <span className={styles.cmdKw}>configure{`\n`}</span>
-                  <span className={styles.cmdKw}>system{`\n`}</span>
-                  <span>{`  `}</span>
-                  <span className={styles.cmdKw}>host-name</span>
-                  <span>{`     `}</span>
-                  <span className={styles.cmdVal}>{targetDevice.hostname}</span>
-                  <span>{`\n`}</span>
-                  <span>{`  `}</span>
-                  <span className={styles.cmdKw}>system-ip</span>
-                  <span>{`     `}</span>
-                  <span className={styles.cmdVal}>{targetDevice.systemIp}</span>
-                  <span>{`\n`}</span>
-                  <span>{`  `}</span>
-                  <span className={styles.cmdKw}>site-id</span>
-                  <span>{`       `}</span>
-                  <span className={styles.cmdVal}>{targetDevice.siteId}</span>
-                  <span>{`\n`}</span>
-                  <span className={styles.cmdKw}>!</span>
-                  <span>{`\n`}</span>
-                  <span className={styles.cmdKw}>request device swap</span>
-                  <span>{`\n`}</span>
-                  <span>{`  `}</span>
-                  <span className={styles.cmdKw}>from-host</span>
-                  <span>{`     `}</span>
-                  <span className={styles.cmdVal}>
-                    {selectedDevice.hostname}
-                  </span>
-                  <span>{`\n`}</span>
-                  <span>{`  `}</span>
-                  <span className={styles.cmdKw}>from-ip</span>
-                  <span>{`       `}</span>
-                  <span className={styles.cmdVal}>
-                    {selectedDevice.systemIp}
-                  </span>
-                  <span>{`\n`}</span>
-                  <span>{`  `}</span>
-                  <span className={styles.cmdKw}>to-host</span>
-                  <span>{`       `}</span>
-                  <span className={styles.cmdVal}>{targetDevice.hostname}</span>
-                  <span>{`\n`}</span>
-                  <span>{`  `}</span>
-                  <span className={styles.cmdKw}>to-ip</span>
-                  <span>{`         `}</span>
-                  <span className={styles.cmdVal}>{targetDevice.systemIp}</span>
-                  <span>{`\n`}</span>
-                  <span className={styles.cmdKw}>!</span>
+                  <textarea
+                    value={preconfigText}
+                    onChange={(e) => setPreconfigText(e.target.value)}
+                    spellCheck={false}
+                    style={{
+                      width: "100%",
+                      minHeight: "180px",
+                      height: "220px",
+                      fontFamily: "'DM Mono', monospace",
+                      fontSize: "12px",
+                      lineHeight: "1.7",
+                      background: "transparent",
+                      color: "#C8F0D0",
+                      border: "none",
+                      outline: "none",
+                      resize: "vertical",
+                      padding: "0",
+                      overflowY: "auto",
+                      boxSizing: "border-box",
+                      display: "block",
+                    }}
+                  />
                 </div>
               </div>
             </div>
@@ -937,6 +955,7 @@ function DeviceDashboard({
                   setShowPreconfigModal(false);
                   setSelectedDevice(null);
                   setTargetDevice(null);
+                  setPreconfigText("");
                 }}
               >
                 Cancel
@@ -947,6 +966,7 @@ function DeviceDashboard({
                   setShowPreconfigModal(false);
                   setSelectedDevice(null);
                   setTargetDevice(null);
+                  setPreconfigText("");
                 }}
               >
                 Apply
@@ -1286,6 +1306,7 @@ export default function DashboardPage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [isDark, setIsDark] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
+  const [myconfigure, setmyconfigure] = useState("");
 
   const theme = isDark ? darkTheme : lightTheme;
 
