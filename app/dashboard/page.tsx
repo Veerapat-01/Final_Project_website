@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import axios from "axios";
 import Script from "next/script";
 import styles from "./dashboard.module.css";
+import { hostname } from "os";
 
 interface Device {
   hostname: string;
@@ -20,7 +21,8 @@ interface Device {
 }
 
 const lightTheme = {
-  "--theme-bg-base": "linear-gradient(145deg, #f0faf5 0%, #eaf6f0 35%, #f4f0ff 70%, #eef5ff 100%)",
+  "--theme-bg-base":
+    "linear-gradient(145deg, #f0faf5 0%, #eaf6f0 35%, #f4f0ff 70%, #eef5ff 100%)",
   "--theme-bg-primary": "#ffffff",
   "--theme-bg-secondary": "#e6f2eb",
   "--theme-bg-card": "#ffffff",
@@ -43,8 +45,10 @@ const lightTheme = {
   "--theme-badge-down-color": "#A32D2D",
   "--theme-badge-down-border": "rgba(226,75,74,0.15)",
   "--theme-grid-line": "rgba(29,158,117,0.07)",
-  "--theme-shadow": "0 4px 24px rgba(29,158,117,0.1), 0 1px 6px rgba(0,0,0,0.06), 0 0 0 1px rgba(29,158,117,0.04)",
-  "--theme-shadow-card": "0 2px 16px rgba(29,158,117,0.12), 0 1px 4px rgba(0,0,0,0.05)",
+  "--theme-shadow":
+    "0 4px 24px rgba(29,158,117,0.1), 0 1px 6px rgba(0,0,0,0.06), 0 0 0 1px rgba(29,158,117,0.04)",
+  "--theme-shadow-card":
+    "0 2px 16px rgba(29,158,117,0.12), 0 1px 4px rgba(0,0,0,0.05)",
   "--theme-filter-active-bg": "#dcf5ea",
   "--theme-filter-active-color": "#1D9E75",
   "--theme-filter-btn-glow": "none",
@@ -83,7 +87,8 @@ const darkTheme = {
   "--theme-badge-down-border": "rgba(255,68,85,0.2)",
   "--theme-grid-line": "rgba(0,255,136,0.04)",
   "--theme-shadow": "0 0 30px rgba(0,255,136,0.06), 0 4px 20px rgba(0,0,0,0.6)",
-  "--theme-shadow-card": "0 0 20px rgba(0,255,136,0.08), inset 0 1px 0 rgba(0,255,136,0.06)",
+  "--theme-shadow-card":
+    "0 0 20px rgba(0,255,136,0.08), inset 0 1px 0 rgba(0,255,136,0.06)",
   "--theme-filter-active-bg": "rgba(0,255,136,0.12)",
   "--theme-filter-active-color": "#00FF88",
   "--theme-filter-btn-glow": "0 0 10px rgba(0,255,136,0.12)",
@@ -96,6 +101,17 @@ const darkTheme = {
   "--theme-noise":
     "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E\")",
 };
+
+function resolveIfnames(deviceType: string): { if1: string; if2: string } {
+  const t = deviceType?.toLowerCase() ?? "";
+  if (t === "vbond") {
+    return { if1: "ge0/0", if2: "ge0/1" };
+  }
+  if (t === "vmanage" || t === "vsmart") {
+    return { if1: "eth0", if2: "eth1" };
+  }
+  return { if1: "ge0/1", if2: "ge0/2" };
+}
 
 function ThemeToggle({
   isDark,
@@ -157,7 +173,9 @@ function ThemeToggle({
             width: "12px",
             height: "12px",
             borderRadius: "50%",
-            background: isDark ? "var(--theme-on-accent)" : "var(--theme-accent-green)",
+            background: isDark
+              ? "var(--theme-on-accent)"
+              : "var(--theme-accent-green)",
             transition: "left 0.3s cubic-bezier(0.4,0,0.2,1)",
             boxShadow: isDark ? "0 0 6px rgba(0,255,136,0.6)" : "none",
           }}
@@ -208,18 +226,58 @@ function ConnectionErrorBanner({ onReconnect }: { onReconnect: () => void }) {
           }}
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M12 8v5M12 16.5v.5" stroke="var(--theme-accent-red)" strokeWidth="1.8" strokeLinecap="round" />
-            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="var(--theme-accent-red)" strokeWidth="1.5" strokeLinejoin="round" />
+            <path
+              d="M12 8v5M12 16.5v.5"
+              stroke="var(--theme-accent-red)"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+            <path
+              d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+              stroke="var(--theme-accent-red)"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
           </svg>
         </div>
-        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: "6px" }}>
-          <div style={{ fontFamily: "'Syne', sans-serif", fontSize: "15px", fontWeight: 700, color: "var(--theme-text-primary)", letterSpacing: "-0.01em" }}>
+        <div
+          style={{
+            textAlign: "center",
+            display: "flex",
+            flexDirection: "column",
+            gap: "6px",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "'Syne', sans-serif",
+              fontSize: "15px",
+              fontWeight: 700,
+              color: "var(--theme-text-primary)",
+              letterSpacing: "-0.01em",
+            }}
+          >
             Unable to establish connection
           </div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "11px", letterSpacing: "0.08em", color: "var(--theme-accent-red)", textTransform: "uppercase" }}>
+          <div
+            style={{
+              fontFamily: "'DM Mono', monospace",
+              fontSize: "11px",
+              letterSpacing: "0.08em",
+              color: "var(--theme-accent-red)",
+              textTransform: "uppercase",
+            }}
+          >
             with vManage
           </div>
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "12px", color: "var(--theme-text-muted)", marginTop: "2px" }}>
+          <div
+            style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: "12px",
+              color: "var(--theme-text-muted)",
+              marginTop: "2px",
+            }}
+          >
             Check your credentials or network and try again.
           </div>
         </div>
@@ -245,8 +303,19 @@ function ConnectionErrorBanner({ onReconnect }: { onReconnect: () => void }) {
           }}
         >
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-            <path d="M14 8A6 6 0 112 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <path d="M14 4v4h-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="M14 8A6 6 0 112 8"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+            <path
+              d="M14 4v4h-4"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
           Reconnect
         </button>
@@ -264,7 +333,9 @@ function DeviceDashboard({
 }) {
   const donutRef = useRef<HTMLCanvasElement>(null);
   const chartInstanceRef = useRef<any>(null);
-  const [filter, setFilter] = useState<"all" | "reachable" | "unreachable">("all");
+  const [filter, setFilter] = useState<"all" | "reachable" | "unreachable">(
+    "all",
+  );
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [swapQuery, setSwapQuery] = useState("");
   const swapInputRef = useRef<HTMLInputElement>(null);
@@ -379,22 +450,50 @@ function DeviceDashboard({
   return (
     <>
       {showSwapModal && (
-        <div className={styles.swapOverlay} onClick={() => setShowSwapModal(false)}>
-          <div className={styles.swapModal} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={styles.swapOverlay}
+          onClick={() => setShowSwapModal(false)}
+        >
+          <div
+            className={styles.swapModal}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className={styles.swapModalHeader}>
               <div className={styles.swapModalTitle}>
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                  <path d="M2 5h10M9 2l3 3-3 3M14 11H4M7 8l-3 3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M2 5h10M9 2l3 3-3 3M14 11H4M7 8l-3 3 3 3"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
                 Swap Device
               </div>
-              <button className={styles.swapModalClose} onClick={() => setShowSwapModal(false)}>✕</button>
+              <button
+                className={styles.swapModalClose}
+                onClick={() => setShowSwapModal(false)}
+              >
+                ✕
+              </button>
             </div>
             <div className={styles.swapSearchWrap}>
               <span className={styles.swapSearchIcon}>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                  <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <circle
+                    cx="6.5"
+                    cy="6.5"
+                    r="4.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                  <path
+                    d="M10 10l3.5 3.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
                 </svg>
               </span>
               <input
@@ -407,14 +506,26 @@ function DeviceDashboard({
             </div>
             <div className={styles.swapDivider} />
             <div className={styles.swapResultCount}>
-              {swapFiltered.length} device{swapFiltered.length !== 1 ? "s" : ""} found
+              {swapFiltered.length} device{swapFiltered.length !== 1 ? "s" : ""}{" "}
+              found
             </div>
             <div className={styles.swapList}>
               {swapFiltered.length === 0 ? (
                 <div className={styles.swapEmpty}>
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                    <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.5" />
-                    <path d="M16.5 16.5L21 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    <circle
+                      cx="11"
+                      cy="11"
+                      r="7"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    />
+                    <path
+                      d="M16.5 16.5L21 21"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
                   </svg>
                   No devices matched
                 </div>
@@ -426,20 +537,35 @@ function DeviceDashboard({
                         {d.type?.slice(0, 2).toUpperCase() ?? "—"}
                       </div>
                       <div>
-                        <div className={styles.swapItemHostname}>{d.hostname}</div>
+                        <div className={styles.swapItemHostname}>
+                          {d.hostname}
+                        </div>
                         <div className={styles.swapItemIp}>{d.systemIp}</div>
                       </div>
                     </div>
                     <div className={styles.swapItemRight}>
                       <span className={styles.swapItemType}>{d.type}</span>
-                      <span className={cn(styles.statusBadge, d.reachable === "reachable" ? styles.up : styles.down)}>
-                        <span className={cn(styles.statusDot, d.reachable === "reachable" ? styles.up : styles.down)} />
+                      <span
+                        className={cn(
+                          styles.statusBadge,
+                          d.reachable === "reachable" ? styles.up : styles.down,
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            styles.statusDot,
+                            d.reachable === "reachable"
+                              ? styles.up
+                              : styles.down,
+                          )}
+                        />
                         {d.reachable === "reachable" ? "Up" : "Down"}
                       </span>
                       <button
                         className={styles.swapItemActionBtn}
                         onClick={(e) => {
                           e.stopPropagation();
+                          // console.log(`[Swap] Source device: ${d.hostname}`);
                           setSelectedDevice(d);
                           setShowSwapModal(false);
                           setShowSwapTargetModal(true);
@@ -457,26 +583,62 @@ function DeviceDashboard({
       )}
 
       {showSwapTargetModal && (
-        <div className={styles.swapOverlay} onClick={() => setShowSwapTargetModal(false)}>
-          <div className={styles.swapModal} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={styles.swapOverlay}
+          onClick={() => setShowSwapTargetModal(false)}
+        >
+          <div
+            className={styles.swapModal}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className={styles.swapModalHeader}>
               <div className={styles.swapModalTitle}>
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                  <path d="M2 5h10M9 2l3 3-3 3M14 11H4M7 8l-3 3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M2 5h10M9 2l3 3-3 3M14 11H4M7 8l-3 3 3 3"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
                 Select Replacement
               </div>
-              <button className={styles.swapModalClose} onClick={() => setShowSwapTargetModal(false)}>✕</button>
+              <button
+                className={styles.swapModalClose}
+                onClick={() => setShowSwapTargetModal(false)}
+              >
+                ✕
+              </button>
             </div>
             {selectedDevice && (
               <div style={{ padding: "12px 20px 0" }}>
                 <div className={styles.swapTargetFrom}>
                   <span className={styles.swapTargetFromLabel}>From</span>
                   <span className={styles.swapTargetFromArrow}>→</span>
-                  <span className={styles.swapTargetFromHostname}>{selectedDevice.hostname}</span>
-                  <span className={styles.swapTargetFromIp}>{selectedDevice.systemIp}</span>
-                  <span className={cn(styles.statusBadge, selectedDevice.reachable === "reachable" ? styles.up : styles.down)} style={{ flexShrink: 0 }}>
-                    <span className={cn(styles.statusDot, selectedDevice.reachable === "reachable" ? styles.up : styles.down)} />
+                  <span className={styles.swapTargetFromHostname}>
+                    {selectedDevice.hostname}
+                  </span>
+                  <span className={styles.swapTargetFromIp}>
+                    {selectedDevice.systemIp}
+                  </span>
+                  <span
+                    className={cn(
+                      styles.statusBadge,
+                      selectedDevice.reachable === "reachable"
+                        ? styles.up
+                        : styles.down,
+                    )}
+                    style={{ flexShrink: 0 }}
+                  >
+                    <span
+                      className={cn(
+                        styles.statusDot,
+                        selectedDevice.reachable === "reachable"
+                          ? styles.up
+                          : styles.down,
+                      )}
+                    />
                     {selectedDevice.reachable === "reachable" ? "Up" : "Down"}
                   </span>
                 </div>
@@ -485,8 +647,19 @@ function DeviceDashboard({
             <div className={styles.swapSearchWrap}>
               <span className={styles.swapSearchIcon}>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                  <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <circle
+                    cx="6.5"
+                    cy="6.5"
+                    r="4.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                  <path
+                    d="M10 10l3.5 3.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
                 </svg>
               </span>
               <input
@@ -499,14 +672,26 @@ function DeviceDashboard({
             </div>
             <div className={styles.swapDivider} />
             <div className={styles.swapResultCount}>
-              {swapTargetFiltered.length} device{swapTargetFiltered.length !== 1 ? "s" : ""} found
+              {swapTargetFiltered.length} device
+              {swapTargetFiltered.length !== 1 ? "s" : ""} found
             </div>
             <div className={styles.swapList}>
               {swapTargetFiltered.length === 0 ? (
                 <div className={styles.swapEmpty}>
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                    <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.5" />
-                    <path d="M16.5 16.5L21 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    <circle
+                      cx="11"
+                      cy="11"
+                      r="7"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    />
+                    <path
+                      d="M16.5 16.5L21 21"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
                   </svg>
                   No devices matched
                 </div>
@@ -518,20 +703,49 @@ function DeviceDashboard({
                         {d.type?.slice(0, 2).toUpperCase() ?? "—"}
                       </div>
                       <div>
-                        <div className={styles.swapItemHostname}>{d.hostname}</div>
+                        <div className={styles.swapItemHostname}>
+                          {d.hostname}
+                        </div>
                         <div className={styles.swapItemIp}>{d.systemIp}</div>
                       </div>
                     </div>
                     <div className={styles.swapItemRight}>
                       <span className={styles.swapItemType}>{d.type}</span>
-                      <span className={cn(styles.statusBadge, d.reachable === "reachable" ? styles.up : styles.down)}>
-                        <span className={cn(styles.statusDot, d.reachable === "reachable" ? styles.up : styles.down)} />
+                      <span
+                        className={cn(
+                          styles.statusBadge,
+                          d.reachable === "reachable" ? styles.up : styles.down,
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            styles.statusDot,
+                            d.reachable === "reachable"
+                              ? styles.up
+                              : styles.down,
+                          )}
+                        />
                         {d.reachable === "reachable" ? "Up" : "Down"}
                       </span>
                       <button
                         className={styles.swapItemActionBtn}
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
+                          // console.log(
+                          //   `[Swap] Source device: ${selectedDevice?.hostname}`,
+                          // );
+                          // console.log(`[Swap] Target device: ${d.hostname}`);
+                          const response = await axios.post(
+                            `${process.env.NEXT_PUBLIC_URL}/api/POST/getdevicebyhostname`,
+                            {
+                              hostname: selectedDevice?.hostname,
+                            },
+                          );
+                          if (response.status === 200) {
+                            const getdevicedata = response.data;
+                            
+                           
+                          }
                           setTargetDevice(d);
                           setShowSwapTargetModal(false);
                           setShowPreconfigModal(true);
@@ -565,8 +779,21 @@ function DeviceDashboard({
             <div className={styles.swapModalHeader}>
               <div className={styles.swapModalTitle}>
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                  <rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M5 7h6M5 10h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <rect
+                    x="2"
+                    y="3"
+                    width="12"
+                    height="10"
+                    rx="2"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                  <path
+                    d="M5 7h6M5 10h4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
                 </svg>
                 Preconfigure Command
               </div>
@@ -585,29 +812,60 @@ function DeviceDashboard({
               <div className={styles.preconfigRoute}>
                 <div className={styles.preconfigRouteDevice}>
                   <span className={styles.preconfigRouteTag}>From</span>
-                  <span className={styles.preconfigRouteHostname}>{selectedDevice.hostname}</span>
-                  <span className={styles.preconfigRouteIp}>{selectedDevice.systemIp}</span>
+                  <span className={styles.preconfigRouteHostname}>
+                    {selectedDevice.hostname}
+                  </span>
+                  <span className={styles.preconfigRouteIp}>
+                    {selectedDevice.systemIp}
+                  </span>
                 </div>
                 <div className={styles.preconfigRouteArrow}>
                   <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                    <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path
+                      d="M3 8h10M9 4l4 4-4 4"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </div>
-                <div className={styles.preconfigRouteDevice} style={{ textAlign: "right" }}>
+                <div
+                  className={styles.preconfigRouteDevice}
+                  style={{ textAlign: "right" }}
+                >
                   <span className={styles.preconfigRouteTag}>To</span>
-                  <span className={styles.preconfigRouteHostname}>{targetDevice.hostname}</span>
-                  <span className={styles.preconfigRouteIp}>{targetDevice.systemIp}</span>
+                  <span className={styles.preconfigRouteHostname}>
+                    {targetDevice.hostname}
+                  </span>
+                  <span className={styles.preconfigRouteIp}>
+                    {targetDevice.systemIp}
+                  </span>
                 </div>
               </div>
             </div>
-            <div className={styles.preconfigCmdSection} style={{ marginTop: 14 }}>
-              <div className={styles.preconfigCmdLabel}>Preconfigure Command</div>
+            <div
+              className={styles.preconfigCmdSection}
+              style={{ marginTop: 14 }}
+            >
+              <div className={styles.preconfigCmdLabel}>
+                Preconfigure Command
+              </div>
               <div className={styles.preconfigCmdWrap}>
                 <div className={styles.preconfigCmdBar}>
                   <div className={styles.preconfigCmdDots}>
-                    <div className={styles.preconfigCmdDot} style={{ background: "#FF5F57" }} />
-                    <div className={styles.preconfigCmdDot} style={{ background: "#FFBD2E" }} />
-                    <div className={styles.preconfigCmdDot} style={{ background: "#28CA41" }} />
+                    <div
+                      className={styles.preconfigCmdDot}
+                      style={{ background: "#FF5F57" }}
+                    />
+                    <div
+                      className={styles.preconfigCmdDot}
+                      style={{ background: "#FFBD2E" }}
+                    />
+                    <div
+                      className={styles.preconfigCmdDot}
+                      style={{ background: "#28CA41" }}
+                    />
                   </div>
                   <button
                     className={styles.preconfigCmdCopy}
@@ -620,7 +878,9 @@ function DeviceDashboard({
                   </button>
                 </div>
                 <div className={styles.preconfigCmdBody}>
-                  <span className={styles.cmdComment}>{`! Preconfigure — ${new Date().toISOString().slice(0, 10)}\n`}</span>
+                  <span
+                    className={styles.cmdComment}
+                  >{`! Preconfigure — ${new Date().toISOString().slice(0, 10)}\n`}</span>
                   <span className={styles.cmdKw}>configure{`\n`}</span>
                   <span className={styles.cmdKw}>system{`\n`}</span>
                   <span>{`  `}</span>
@@ -645,12 +905,16 @@ function DeviceDashboard({
                   <span>{`  `}</span>
                   <span className={styles.cmdKw}>from-host</span>
                   <span>{`     `}</span>
-                  <span className={styles.cmdVal}>{selectedDevice.hostname}</span>
+                  <span className={styles.cmdVal}>
+                    {selectedDevice.hostname}
+                  </span>
                   <span>{`\n`}</span>
                   <span>{`  `}</span>
                   <span className={styles.cmdKw}>from-ip</span>
                   <span>{`       `}</span>
-                  <span className={styles.cmdVal}>{selectedDevice.systemIp}</span>
+                  <span className={styles.cmdVal}>
+                    {selectedDevice.systemIp}
+                  </span>
                   <span>{`\n`}</span>
                   <span>{`  `}</span>
                   <span className={styles.cmdKw}>to-host</span>
@@ -732,10 +996,16 @@ function DeviceDashboard({
               cls: styles.anim3,
             },
           ].map((m) => (
-            <div key={m.label} className={cn(styles.metricCard, m.cls)} style={gridStyle}>
+            <div
+              key={m.label}
+              className={cn(styles.metricCard, m.cls)}
+              style={gridStyle}
+            >
               <div className={styles.accentBar} style={{ background: m.bar }} />
               <div className={styles.mLabel}>{m.label}</div>
-              <div className={styles.mValue} style={{ color: m.color }}>{m.value}</div>
+              <div className={styles.mValue} style={{ color: m.color }}>
+                {m.value}
+              </div>
               <div className={styles.mSub}>{m.sub}</div>
               <div className={styles.mIcon}>{m.icon}</div>
             </div>
@@ -743,7 +1013,10 @@ function DeviceDashboard({
         </div>
 
         <div className={styles.wanGrid}>
-          <div className={cn(styles.panel, styles.animPanel1)} style={gridStyle}>
+          <div
+            className={cn(styles.panel, styles.animPanel1)}
+            style={gridStyle}
+          >
             <div className={styles.panelTitle}>WAN Edge Health</div>
             <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
               <div className={styles.donutWrap}>
@@ -757,7 +1030,8 @@ function DeviceDashboard({
                       width: "120px",
                       height: "120px",
                       borderRadius: "50%",
-                      background: "radial-gradient(circle, rgba(0,255,136,0.06) 0%, transparent 70%)",
+                      background:
+                        "radial-gradient(circle, rgba(0,255,136,0.06) 0%, transparent 70%)",
                       pointerEvents: "none",
                       zIndex: 0,
                     }}
@@ -776,13 +1050,25 @@ function DeviceDashboard({
                   <div className={styles.donutSub}>WAN Edges</div>
                 </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px", flex: 1 }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  flex: 1,
+                }}
+              >
                 {[
                   { colorClass: "green", label: "Reachable", count: reach },
                   { colorClass: "red", label: "Unreachable", count: unreach },
                 ].map((l) => (
                   <div key={l.label} className={styles.legendItem}>
-                    <span className={cn(styles.legendDot, l.colorClass === "green" ? styles.green : styles.red)} />
+                    <span
+                      className={cn(
+                        styles.legendDot,
+                        l.colorClass === "green" ? styles.green : styles.red,
+                      )}
+                    />
                     <span>{l.label}</span>
                     <span className={styles.legendCount}>{l.count}</span>
                   </div>
@@ -791,8 +1077,13 @@ function DeviceDashboard({
             </div>
           </div>
 
-          <div className={cn(styles.panel, styles.animPanel2)} style={gridStyle}>
-            <div className={styles.panelTitle}>Site BFD Connectivity ({sites})</div>
+          <div
+            className={cn(styles.panel, styles.animPanel2)}
+            style={gridStyle}
+          >
+            <div className={styles.panelTitle}>
+              Site BFD Connectivity ({sites})
+            </div>
             {[
               {
                 label: "Reachable",
@@ -817,7 +1108,9 @@ function DeviceDashboard({
               },
             ].map((row) => (
               <div key={row.label} className={styles.bfdRow}>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                >
                   <span
                     className={styles.bfdPill}
                     style={{
@@ -846,12 +1139,30 @@ function DeviceDashboard({
         </div>
 
         <div className={cn(styles.panel, styles.animTable)} style={gridStyle}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-            <div className={styles.panelTitle} style={{ margin: 0, flex: 1 }}>Device List</div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "16px",
+            }}
+          >
+            <div className={styles.panelTitle} style={{ margin: 0, flex: 1 }}>
+              Device List
+            </div>
             <div className={styles.filterBar}>
-              <button className={styles.swapBtn} onClick={() => setShowSwapModal(true)}>
+              <button
+                className={styles.swapBtn}
+                onClick={() => setShowSwapModal(true)}
+              >
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                  <path d="M2 5h10M9 2l3 3-3 3M14 11H4M7 8l-3 3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M2 5h10M9 2l3 3-3 3M14 11H4M7 8l-3 3 3 3"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
                 Swap
               </button>
@@ -859,7 +1170,10 @@ function DeviceDashboard({
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={cn(styles.filterBtn, filter === f && styles.active)}
+                  className={cn(
+                    styles.filterBtn,
+                    filter === f && styles.active,
+                  )}
                 >
                   {f.charAt(0).toUpperCase() + f.slice(1)}
                 </button>
@@ -879,7 +1193,15 @@ function DeviceDashboard({
               </colgroup>
               <thead>
                 <tr>
-                  {["Hostname", "System IP", "Site ID", "Type", "ge0/1 IP", "ge0/2 IP", "Status"].map((h) => (
+                  {[
+                    "Hostname",
+                    "System IP",
+                    "Site ID",
+                    "Type",
+                    "ge0/1 IP",
+                    "ge0/2 IP",
+                    "Status",
+                  ].map((h) => (
                     <th key={h}>{h}</th>
                   ))}
                 </tr>
@@ -907,14 +1229,40 @@ function DeviceDashboard({
                       <td style={{ fontWeight: 500 }}>{d.hostname}</td>
                       <td className={styles.mono}>{d.systemIp}</td>
                       <td>{d.siteId}</td>
-                      <td style={{ textTransform: "uppercase", fontSize: "11px", letterSpacing: "0.04em", fontWeight: 600, fontFamily: "'DM Mono', monospace" }}>
+                      <td
+                        style={{
+                          textTransform: "uppercase",
+                          fontSize: "11px",
+                          letterSpacing: "0.04em",
+                          fontWeight: 600,
+                          fontFamily: "'DM Mono', monospace",
+                        }}
+                      >
                         {d.type}
                       </td>
-                      <td className={cn(styles.mono, !d.ge01 && styles.muted)}>{d.ge01 ?? "—"}</td>
-                      <td className={cn(styles.mono, !d.ge02 && styles.muted)}>{d.ge02 ?? "—"}</td>
+                      <td className={cn(styles.mono, !d.ge01 && styles.muted)}>
+                        {d.ge01 ?? "—"}
+                      </td>
+                      <td className={cn(styles.mono, !d.ge02 && styles.muted)}>
+                        {d.ge02 ?? "—"}
+                      </td>
                       <td>
-                        <span className={cn(styles.statusBadge, d.reachable === "reachable" ? styles.up : styles.down)}>
-                          <span className={cn(styles.statusDot, d.reachable === "reachable" ? styles.up : styles.down)} />
+                        <span
+                          className={cn(
+                            styles.statusBadge,
+                            d.reachable === "reachable"
+                              ? styles.up
+                              : styles.down,
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              styles.statusDot,
+                              d.reachable === "reachable"
+                                ? styles.up
+                                : styles.down,
+                            )}
+                          />
                           {d.reachable === "reachable" ? "Up" : "Down"}
                         </span>
                       </td>
@@ -944,10 +1292,22 @@ export default function DashboardPage() {
   useEffect(() => {
     const root = document.documentElement;
     Object.entries(theme).forEach(([k, v]) => root.style.setProperty(k, v));
-    root.style.setProperty("--color-background-primary", theme["--theme-bg-primary"]);
-    root.style.setProperty("--color-background-secondary", theme["--theme-bg-secondary"]);
-    root.style.setProperty("--color-text-primary", theme["--theme-text-primary"]);
-    root.style.setProperty("--color-text-secondary", theme["--theme-text-secondary"]);
+    root.style.setProperty(
+      "--color-background-primary",
+      theme["--theme-bg-primary"],
+    );
+    root.style.setProperty(
+      "--color-background-secondary",
+      theme["--theme-bg-secondary"],
+    );
+    root.style.setProperty(
+      "--color-text-primary",
+      theme["--theme-text-primary"],
+    );
+    root.style.setProperty(
+      "--color-text-secondary",
+      theme["--theme-text-secondary"],
+    );
     root.style.setProperty("--color-border-tertiary", theme["--theme-border"]);
     root.style.background = theme["--theme-bg-base"];
     document.body.style.background = theme["--theme-bg-base"];
@@ -967,7 +1327,11 @@ export default function DashboardPage() {
     try {
       const authenResponse = await axios.post(
         `${process.env.NEXT_PUBLIC_URL}/api/POST/authenVmanage`,
-        { ip: credentials.ip, username: credentials.username, password: credentials.password },
+        {
+          ip: credentials.ip,
+          username: credentials.username,
+          password: credentials.password,
+        },
       );
 
       const deviceResponse = await axios.post(
@@ -981,22 +1345,29 @@ export default function DashboardPage() {
         setIsConnected(true);
 
         const data = deviceResponse.data.data.data;
-        const filteredData = data.filter(
-          (device: { "site-id": string }) => !["1101", "2101"].includes(device["site-id"]),
+
+        const allDevices = data;
+
+        const deviceIds = allDevices.map(
+          (device: { deviceId: any }) => device.deviceId,
         );
-
-        const deviceIds = filteredData.map((device: { deviceId: any }) => device.deviceId);
-        const systemip = filteredData.map((device: { ["system-ip"]: string }) => device["system-ip"]);
-        const hostnames = filteredData.map((device: { ["host-name"]: string }) => device["host-name"]);
-        const siteIds = filteredData.map((device: { ["site-id"]: string }) => device["site-id"]);
-        const reachability = filteredData.map((device: { reachability: any }) => device.reachability);
-        const status = filteredData.map((device: { status: any }) => device.status);
-        const uuid = filteredData.map((device: { uuid: any }) => device.uuid);
-        const deviceTypes = filteredData.map((device: { "device-type": string }) => device["device-type"]);
-
-        const responseInterfaces = await axios.post(
-          `${process.env.NEXT_PUBLIC_URL}/api/POST/getInterfaces`,
-          { ip: credentials.ip, deviceId: deviceIds[100], cookie: authenResponse.data.cookie },
+        const systemip = allDevices.map(
+          (device: { ["system-ip"]: string }) => device["system-ip"],
+        );
+        const hostnames = allDevices.map(
+          (device: { ["host-name"]: string }) => device["host-name"],
+        );
+        const siteIds = allDevices.map(
+          (device: { ["site-id"]: string }) => device["site-id"],
+        );
+        const reachability = allDevices.map(
+          (device: { reachability: any }) => device.reachability,
+        );
+        const status = allDevices.map(
+          (device: { status: any }) => device.status,
+        );
+        const deviceTypes = allDevices.map(
+          (device: { "device-type": string }) => device["device-type"],
         );
 
         for (let i = 0; i < deviceIds.length; i++) {
@@ -1006,22 +1377,29 @@ export default function DashboardPage() {
           try {
             const responseInterfaces = await axios.post(
               `${process.env.NEXT_PUBLIC_URL}/api/POST/getInterfaces`,
-              { ip: credentials.ip, deviceId: deviceIds[i], cookie: authenResponse.data.cookie },
+              {
+                ip: credentials.ip,
+                deviceId: deviceIds[i],
+                cookie: authenResponse.data.cookie,
+              },
             );
 
             const interfaces = responseInterfaces.data.data.data;
-            const isEthDevice = ["vsmart", "vbond", "vmanage"].includes(deviceTypes[i]?.toLowerCase());
 
-            const ge01 = interfaces.find(
-              (int: any) => int["af-type"] === "ipv4" && int.ifname === (isEthDevice ? "eth1" : "ge0/1"),
-            ) ?? null;
+            const { if1, if2 } = resolveIfnames(deviceTypes[i]);
 
-            const ge02 = interfaces.find(
-              (int: any) => int["af-type"] === "ipv4" && int.ifname === (isEthDevice ? "eth2" : "ge0/2"),
-            ) ?? null;
+            const iface1 =
+              interfaces.find(
+                (int: any) => int["af-type"] === "ipv4" && int.ifname === if1,
+              ) ?? null;
 
-            ge01Ip = ge01?.["ip-address"] ?? null;
-            ge02Ip = ge02?.["ip-address"] ?? null;
+            const iface2 =
+              interfaces.find(
+                (int: any) => int["af-type"] === "ipv4" && int.ifname === if2,
+              ) ?? null;
+
+            ge01Ip = iface1?.["ip-address"] ?? null;
+            ge02Ip = iface2?.["ip-address"] ?? null;
 
             const responseCheck = await axios.post(
               `${process.env.NEXT_PUBLIC_URL}/api/POST/getdevicebyhostname`,
@@ -1029,20 +1407,24 @@ export default function DashboardPage() {
             );
 
             if (responseCheck.data.length === 0) {
-              const responsesave = await axios.post(
+              await axios.post(
                 `${process.env.NEXT_PUBLIC_URL}/api/POST/pushdeviceinfo`,
                 {
-                  system_ip: systemip[i],
                   hostname: hostnames[i],
+                  systemip: systemip[i],
                   siteid: siteIds[i],
                   ipad1: ge01Ip,
                   ipad2: ge02Ip,
+                  deviceType: deviceTypes[i],
                   reachable: reachability[i],
                 },
               );
             }
           } catch (error) {
-            console.error(`Device ${i} (${deviceIds[i]}) getInterfaces failed`, error);
+            console.error(
+              `Device ${i} (${deviceIds[i]}) getInterfaces failed`,
+              error,
+            );
           }
 
           setDevices((prev) => [
@@ -1075,7 +1457,10 @@ export default function DashboardPage() {
   return (
     <div
       className="flex min-h-screen"
-      style={{ background: "var(--theme-bg-base)", transition: "background 0.4s ease" }}
+      style={{
+        background: "var(--theme-bg-base)",
+        transition: "background 0.4s ease",
+      }}
     >
       <Script
         src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"
@@ -1084,63 +1469,129 @@ export default function DashboardPage() {
 
       <ThemeToggle isDark={isDark} onToggle={() => setIsDark(!isDark)} />
 
-      {showModal && <VManageConnectionModal onConnect={handleConnect} onClose={() => setShowModal(false)} />}
+      {showModal && (
+        <VManageConnectionModal
+          onConnect={handleConnect}
+          onClose={() => setShowModal(false)}
+        />
+      )}
 
       <div className="hidden lg:block">
-        <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
+        <Sidebar
+          isCollapsed={isCollapsed}
+          onToggle={() => setIsCollapsed(!isCollapsed)}
+        />
       </div>
 
-      <main className={cn("flex-1 p-4 md:p-5 lg:p-6 transition-all duration-300", isCollapsed ? "lg:ml-16" : "lg:ml-60")}>
+      <main
+        className={cn(
+          "flex-1 p-4 md:p-5 lg:p-6 transition-all duration-300",
+          isCollapsed ? "lg:ml-16" : "lg:ml-60",
+        )}
+      >
         {isConnected && chartReady ? (
           <DeviceDashboard devices={devices} isDark={isDark} />
         ) : connectionError ? (
           <ConnectionErrorBanner onReconnect={handleReconnect} />
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh", gap: "20px" }}>
-            {/* Animated ring */}
-            <div style={{ position: "relative", width: "72px", height: "72px" }}>
-              <div style={{
-                position: "absolute", inset: 0,
-                borderRadius: "50%",
-                border: "2px solid var(--theme-border)",
-                borderTop: "2px solid var(--theme-accent-green)",
-                animation: "spin 1.2s linear infinite",
-              }} />
-              <div style={{
-                position: "absolute", inset: "10px",
-                borderRadius: "50%",
-                border: "2px solid transparent",
-                borderTop: "2px solid var(--theme-accent-light)",
-                animation: "spin 1.8s linear infinite reverse",
-                opacity: 0.5,
-              }} />
-              <div style={{
-                position: "absolute", inset: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: "var(--theme-accent-green)",
-              }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "60vh",
+              gap: "20px",
+            }}
+          >
+            <div
+              style={{ position: "relative", width: "72px", height: "72px" }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: "50%",
+                  border: "2px solid var(--theme-border)",
+                  borderTop: "2px solid var(--theme-accent-green)",
+                  animation: "spin 1.2s linear infinite",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  inset: "10px",
+                  borderRadius: "50%",
+                  border: "2px solid transparent",
+                  borderTop: "2px solid var(--theme-accent-light)",
+                  animation: "spin 1.8s linear infinite reverse",
+                  opacity: 0.5,
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--theme-accent-green)",
+                }}
+              >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12.5C5 8.91 7.91 6 11.5 6c2.17 0 4.08 1.03 5.3 2.63M19 11.5C19 15.09 16.09 18 12.5 18c-2.17 0-4.08-1.03-5.3-2.63" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  <path d="M16.5 6l.3 2.63M7.5 18l-.3-2.63" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path
+                    d="M5 12.5C5 8.91 7.91 6 11.5 6c2.17 0 4.08 1.03 5.3 2.63M19 11.5C19 15.09 16.09 18 12.5 18c-2.17 0-4.08-1.03-5.3-2.63"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M16.5 6l.3 2.63M7.5 18l-.3-2.63"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
                 </svg>
               </div>
             </div>
 
-            {/* Text */}
-            <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: "6px" }}>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "11px", letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--theme-text-muted)" }}>
+            <div
+              style={{
+                textAlign: "center",
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: "11px",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: "var(--theme-text-muted)",
+                }}
+              >
                 Awaiting Connection
               </div>
-              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "13px", color: "var(--theme-text-muted)", opacity: 0.7 }}>
+              <div
+                style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: "13px",
+                  color: "var(--theme-text-muted)",
+                  opacity: 0.7,
+                }}
+              >
                 No vManage controller connected
               </div>
             </div>
 
-            {/* Connect button */}
             <button
               onClick={() => setShowModal(true)}
               style={{
-                display: "inline-flex", alignItems: "center", gap: "8px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
                 padding: "10px 22px",
                 borderRadius: "10px",
                 border: "none",
@@ -1154,12 +1605,32 @@ export default function DashboardPage() {
                 boxShadow: "0 4px 14px var(--theme-accent-glow)",
                 transition: "all 0.2s ease",
               }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 6px 20px var(--theme-accent-glow)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 4px 14px var(--theme-accent-glow)"; }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.transform =
+                  "translateY(-1px)";
+                (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                  "0 6px 20px var(--theme-accent-glow)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.transform =
+                  "translateY(0)";
+                (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                  "0 4px 14px var(--theme-accent-glow)";
+              }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                <path d="M5 12.5C5 8.91 7.91 6 11.5 6c2.17 0 4.08 1.03 5.3 2.63M19 11.5C19 15.09 16.09 18 12.5 18c-2.17 0-4.08-1.03-5.3-2.63" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                <path d="M16.5 6l.3 2.63M7.5 18l-.3-2.63" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <path
+                  d="M5 12.5C5 8.91 7.91 6 11.5 6c2.17 0 4.08 1.03 5.3 2.63M19 11.5C19 15.09 16.09 18 12.5 18c-2.17 0-4.08-1.03-5.3-2.63"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M16.5 6l.3 2.63M7.5 18l-.3-2.63"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
               </svg>
               Connect to vManage
             </button>
