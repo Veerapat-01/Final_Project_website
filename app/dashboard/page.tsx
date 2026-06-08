@@ -388,11 +388,6 @@ function DeviceDashboard({
     if (!selectedDevice || !targetDevice) return;
     setIsSwapping(true);
     try {
-      await axios.post(`${process.env.NEXT_PUBLIC_URL}/api/POST/swapdevice`, {
-        fromHostname: selectedDevice.hostname,
-        toHostname: targetDevice.hostname,
-        preconfigText,
-      });
       setSwapSuccess(true);
       setTimeout(() => {
         setSwapSuccess(false);
@@ -810,6 +805,21 @@ function DeviceDashboard({
                               temp += `color private3\n`;
                               temp += `! \n`;
                               temp += `! \n`;
+                              const ip1 = getdevicedata.g_01.split("/")[0];
+                              const octet1 = ip1.split(".");
+
+                              const ip2 = getdevicedata.g_02.split("/")[0];
+                              const octet2 = ip2.split(".");
+
+                              temp += `ip route 0.0.0.0 0.0.0.0 ${
+                                octet1[0]
+                              }.${octet1[1]}.${octet1[2]}.${Number(octet1[3]) - 5}\n`;
+
+                              temp += `ip route 0.0.0.0 0.0.0.0 ${
+                                octet2[0]
+                              }.${octet2[1]}.${octet2[2]}.${Number(octet2[3]) - 5}\n`;
+                              temp += `! \n`;
+                              temp += `! \n`;
                             }
                           }
                           setPreconfigText(temp);
@@ -984,7 +994,7 @@ function DeviceDashboard({
               >
                 Cancel
               </button>
-              <button
+              {/* <button
                 className={styles.preconfigApplyBtn}
                 disabled={isSwapping}
                 onClick={() => {
@@ -995,7 +1005,7 @@ function DeviceDashboard({
                 }}
               >
                 Apply
-              </button>
+              </button> */}
               <button
                 onClick={handleSwapNow}
                 disabled={isSwapping || swapSuccess}
