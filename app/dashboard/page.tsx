@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import axios from "axios";
 import Script from "next/script";
 import styles from "./dashboard.module.css";
-import { hostname } from "os";
 
 interface Device {
   hostname: string;
@@ -346,6 +345,8 @@ function DeviceDashboard({
   const [targetDevice, setTargetDevice] = useState<Device | null>(null);
   const [showPreconfigModal, setShowPreconfigModal] = useState(false);
   const [preconfigText, setPreconfigText] = useState("");
+  const [isSwapping, setIsSwapping] = useState(false);
+  const [swapSuccess, setSwapSuccess] = useState(false);
 
   const total = devices.length;
   const reach = devices.filter((d) => d.reachable === "reachable").length;
@@ -382,6 +383,30 @@ function DeviceDashboard({
   const accentGreen = isDark ? "#00FF88" : "#1D9E75";
   const accentRed = isDark ? "#FF4455" : "#E24B4A";
   const accentLight = isDark ? "#00FFCC" : "#5DCAA5";
+
+  const handleSwapNow = async () => {
+    if (!selectedDevice || !targetDevice) return;
+    setIsSwapping(true);
+    try {
+      await axios.post(`${process.env.NEXT_PUBLIC_URL}/api/POST/swapdevice`, {
+        fromHostname: selectedDevice.hostname,
+        toHostname: targetDevice.hostname,
+        preconfigText,
+      });
+      setSwapSuccess(true);
+      setTimeout(() => {
+        setSwapSuccess(false);
+        setShowPreconfigModal(false);
+        setSelectedDevice(null);
+        setTargetDevice(null);
+        setPreconfigText("");
+      }, 1500);
+    } catch (err) {
+      console.error("Swap failed:", err);
+    } finally {
+      setIsSwapping(false);
+    }
+  };
 
   useEffect(() => {
     if (!donutRef.current) return;
@@ -786,8 +811,6 @@ function DeviceDashboard({
                               temp += `! \n`;
                               temp += `! \n`;
                             }
-
-                            console.log(temp);
                           }
                           setPreconfigText(temp);
                           setTargetDevice(d);
@@ -951,6 +974,7 @@ function DeviceDashboard({
             <div className={styles.preconfigFooter}>
               <button
                 className={styles.preconfigCloseBtn}
+                disabled={isSwapping}
                 onClick={() => {
                   setShowPreconfigModal(false);
                   setSelectedDevice(null);
@@ -962,6 +986,7 @@ function DeviceDashboard({
               </button>
               <button
                 className={styles.preconfigApplyBtn}
+                disabled={isSwapping}
                 onClick={() => {
                   setShowPreconfigModal(false);
                   setSelectedDevice(null);
@@ -970,6 +995,80 @@ function DeviceDashboard({
                 }}
               >
                 Apply
+              </button>
+              <button
+                onClick={handleSwapNow}
+                disabled={isSwapping || swapSuccess}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "7px",
+                  padding: "9px 20px",
+                  borderRadius: "100px",
+                  border: "none",
+                  background: swapSuccess
+                    ? "var(--theme-accent-green)"
+                    : "linear-gradient(135deg, var(--theme-accent-green), var(--theme-accent-light))",
+                  color: "var(--theme-on-accent)",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  cursor: isSwapping || swapSuccess ? "not-allowed" : "pointer",
+                  opacity: isSwapping ? 0.75 : 1,
+                  transition: "all 0.25s ease",
+                  boxShadow: "0 0 14px var(--theme-accent-glow)",
+                }}
+              >
+                {isSwapping ? (
+                  <>
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      style={{ animation: "spin 0.8s linear infinite" }}
+                    >
+                      <circle
+                        cx="8"
+                        cy="8"
+                        r="6"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeDasharray="28"
+                        strokeDashoffset="10"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    Swapping…
+                  </>
+                ) : swapSuccess ? (
+                  <>
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                      <path
+                        d="M3 8l4 4 6-7"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    Done!
+                  </>
+                ) : (
+                  <>
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                      <path
+                        d="M2 5h10M9 2l3 3-3 3M14 11H4M7 8l-3 3 3 3"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    Swap Now
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -1366,6 +1465,7 @@ export default function DashboardPage() {
         setIsConnected(true);
 
         const data = deviceResponse.data.data.data;
+        console.log(data);
 
         const allDevices = data;
 
@@ -1421,29 +1521,29 @@ export default function DashboardPage() {
 
             ge01Ip = iface1?.["ip-address"] ?? null;
             ge02Ip = iface2?.["ip-address"] ?? null;
-
-            const responseCheck = await axios.post(
-              `${process.env.NEXT_PUBLIC_URL}/api/POST/getdevicebyhostname`,
-              { hostname: hostnames[i] },
-            );
-
-            if (responseCheck.data.length === 0) {
-              await axios.post(
-                `${process.env.NEXT_PUBLIC_URL}/api/POST/pushdeviceinfo`,
-                {
-                  hostname: hostnames[i],
-                  systemip: systemip[i],
-                  siteid: siteIds[i],
-                  ipad1: ge01Ip,
-                  ipad2: ge02Ip,
-                  deviceType: deviceTypes[i],
-                  reachable: reachability[i],
-                },
-              );
-            }
           } catch (error) {
             console.error(
               `Device ${i} (${deviceIds[i]}) getInterfaces failed`,
+              error,
+            );
+          }
+
+          try {
+            await axios.post(
+              `${process.env.NEXT_PUBLIC_URL}/api/POST/pushdeviceinfo`,
+              {
+                hostname: hostnames[i],
+                systemip: systemip[i],
+                siteid: siteIds[i],
+                ipad1: ge01Ip,
+                ipad2: ge02Ip,
+                deviceType: deviceTypes[i],
+                reachable: reachability[i],
+              },
+            );
+          } catch (error) {
+            console.error(
+              `Device ${i} (${deviceIds[i]}) pushdeviceinfo failed`,
               error,
             );
           }
