@@ -7,12 +7,12 @@ const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { hostname, ip, username, password } = body;
+    const { chassisNumber, ip, username, password } = body;
 
-    if (!hostname || !ip || !username || !password) {
+    if (!chassisNumber || !ip || !username || !password) {
       return NextResponse.json(
-        { error: "hostname, ip, username, and password are required" },
-        { status: 400 }
+        { error: "chassisNumber, ip, username, and password are required" },
+        { status: 400 },
       );
     }
 
@@ -22,7 +22,9 @@ export async function POST(request) {
       {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         httpsAgent,
-      }
+        maxRedirects: 0,
+        validateStatus: (s) => s < 400,
+      },
     );
 
     const sessionCookie = authResponse.headers["set-cookie"]
@@ -31,52 +33,13 @@ export async function POST(request) {
 
     const tokenResponse = await axios.get(
       `https://${ip}/dataservice/client/token`,
-      { headers: { Cookie: sessionCookie }, httpsAgent }
+      { headers: { Cookie: sessionCookie }, httpsAgent },
     );
 
     const xsrfToken = tokenResponse.data;
 
-    const deviceListResponse = await axios.get(
-      `https://${ip}/dataservice/system/device/vedges`,
-      {
-        headers: { Cookie: sessionCookie, "X-XSRF-TOKEN": xsrfToken },
-        httpsAgent,
-      }
-    );
-
-    const allDevices = deviceListResponse.data?.data ?? [];
-    const targetDevice = allDevices.find(
-      (d) => d["host-name"] === hostname || d.hostName === hostname
-    );
-
-    if (!targetDevice) {
-      return NextResponse.json(
-        { error: "Device not found in vManage" },
-        { status: 404 }
-      );
-    }
-
-    const uuid = targetDevice.uuid || targetDevice.deviceId;
-
-    if (!uuid) {
-      return NextResponse.json(
-        { error: "Unable to resolve device UUID" },
-        { status: 422 }
-      );
-    }
-
-    const invalidateResponse = await axios.put(
-      `https://${ip}/dataservice/certificate/vedge/list?action=invalidate`,
-      {
-        action: "invalidate",
-        devices: [
-          {
-            deviceId: uuid,
-            deviceIP: targetDevice["system-ip"],
-            validity: "invalid",
-          },
-        ],
-      },
+    const invalidateResponse = await axios.delete(
+      `https://${ip}/dataservice/certificate/${chassisNumber}`,
       {
         headers: {
           Cookie: sessionCookie,
@@ -84,15 +47,16 @@ export async function POST(request) {
           "Content-Type": "application/json",
         },
         httpsAgent,
-      }
+      },
     );
 
     return NextResponse.json(
       {
-        message: `Device ${hostname} invalidated successfully`,
+        message: `Device ${chassisNumber} invalidated successfully`,
+        deviceId: chassisNumber,
         vmanageResponse: invalidateResponse.data,
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("invalidatedevice error:", error?.response?.data ?? error);
@@ -101,7 +65,7 @@ export async function POST(request) {
         error: "Failed to invalidate device",
         detail: error?.response?.data ?? error?.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

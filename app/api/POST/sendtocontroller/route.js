@@ -7,7 +7,7 @@ const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { ip, username, password } = body;
+    const { ip, username, password, serial } = body;
 
     if (!ip || !username || !password) {
       return NextResponse.json(
@@ -36,9 +36,11 @@ export async function POST(request) {
 
     const xsrfToken = tokenResponse.data;
 
+    const pushBody = serial ? { devices: [{ deviceId: serial }] } : {};
+
     const pushResponse = await axios.post(
       `https://${ip}/dataservice/certificate/vedge/list?action=push`,
-      {},
+      pushBody,
       {
         headers: {
           Cookie: sessionCookie,

@@ -120,6 +120,37 @@ function resolveIfnames(deviceType: string): { if1: string; if2: string } {
   return { if1: "ge0/1", if2: "ge0/2" };
 }
 
+function highlightMatch(text: string, query: string): React.ReactNode {
+  if (!query.trim()) return text;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return text;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark
+        style={{
+          background: "var(--theme-accent-green)",
+          color: "var(--theme-on-accent)",
+          borderRadius: "2px",
+          padding: "0 1px",
+        }}
+      >
+        {text.slice(idx, idx + query.length)}
+      </mark>
+      {text.slice(idx + query.length)}
+    </>
+  );
+}
+
+function matchesSearch(d: Device, q: string): boolean {
+  const lower = q.toLowerCase();
+  return (
+    d.hostname.toLowerCase().includes(lower) ||
+    d.systemIp.toLowerCase().includes(lower) ||
+    (d.serial?.toLowerCase().includes(lower) ?? false)
+  );
+}
+
 function ThemeToggle({
   isDark,
   onToggle,
@@ -357,6 +388,9 @@ function DeviceDashboard({
   const [preconfigText, setPreconfigText] = useState("");
   const [isSwapping, setIsSwapping] = useState(false);
   const [swapSuccess, setSwapSuccess] = useState(false);
+  const [manualSerial, setManualSerial] = useState("");
+  const [manualSerialError, setManualSerialError] = useState("");
+  const [isManualMode, setIsManualMode] = useState(false);
 
   const total = devices.length;
   const reach = devices.filter((d) => d.reachable === "reachable").length;
@@ -371,7 +405,7 @@ function DeviceDashboard({
     filter === "all" ? devices : devices.filter((d) => d.reachable === filter);
 
   const swapFiltered = devices
-    .filter((d) => d.hostname.toLowerCase().includes(swapQuery.toLowerCase()))
+    .filter((d) => matchesSearch(d, swapQuery))
     .sort((a, b) => {
       if (a.reachable !== "reachable" && b.reachable === "reachable") return -1;
       if (a.reachable === "reachable" && b.reachable !== "reachable") return 1;
@@ -382,7 +416,7 @@ function DeviceDashboard({
     .filter(
       (d) =>
         d.hostname !== selectedDevice?.hostname &&
-        d.hostname.toLowerCase().includes(swapTargetQuery.toLowerCase()),
+        matchesSearch(d, swapTargetQuery),
     )
     .sort((a, b) => {
       if (a.reachable === "reachable" && b.reachable !== "reachable") return -1;
@@ -394,31 +428,139 @@ function DeviceDashboard({
   const accentRed = isDark ? "#FF4455" : "#E24B4A";
   const accentLight = isDark ? "#00FFCC" : "#5DCAA5";
 
+  const handleConfirmWithDevice = async (d: Device) => {
+    let temp = "";
+    const response = await axios.post(
+      `${process.env.NEXT_PUBLIC_URL}/api/POST/getdevicebyhostname`,
+      {
+        hostname: selectedDevice?.hostname,
+      },
+    );
+
+    if (response.status === 200) {
+      const getdevicedata = response.data[0];
+
+      if (
+        getdevicedata.roles === "vmanage" ||
+        getdevicedata.roles === "vsmart"
+      ) {
+        temp += "config\n";
+        temp += "system\n";
+        temp += `${getdevicedata.hostname}\n`;
+        temp += `system-ip ${getdevicedata.systemip}\n`;
+        temp += `site-id ${getdevicedata.siteid}\n`;
+        temp += `sp-organization-name "BAAC"\n`;
+        temp += `organization-name "BAAC"\n`;
+        temp += `vbond 172.26.155.17\n`;
+        temp += `! \n`;
+        temp += `vpn 0 \n`;
+        temp += `int eth0\n`;
+        temp += ` ip address ${getdevicedata.eth_0} \n`;
+        temp += `no shutdown \n`;
+      } else {
+        temp += "config\n";
+        temp += "system\n";
+        temp += `host-name ${getdevicedata.hostname}\n`;
+        temp += `system-ip ${getdevicedata.systemip}\n`;
+        temp += `site-id ${getdevicedata.siteid}\n`;
+        temp += `sp-organization-name "BAAC"\n`;
+        temp += `organization-name "BAAC"\n`;
+        temp += `vbond 172.26.155.17\n`;
+        temp += `! \n`;
+        temp += `vpn 0\n`;
+        temp += `dns 172.26.18.32 primary\n`;
+        temp += `dns 8.8.8.8 secondary\n`;
+        temp += `int ge0/1 \n`;
+        temp += `ip address ${getdevicedata.g_01}\n`;
+        temp += `no shutdown\n`;
+        temp += `tunnel encap ipsec\n`;
+        temp += `color private2\n`;
+        temp += `! \n`;
+        temp += `int ge0/2 \n`;
+        temp += `ip address ${getdevicedata.g_02} \n`;
+        temp += `no shutdown\n`;
+        temp += `tunnel encap ipsec\n`;
+        temp += `color private3\n`;
+        temp += `! \n`;
+        temp += `! \n`;
+        const ip1 = getdevicedata.g_01.split("/")[0];
+        const octet1 = ip1.split(".");
+
+        const ip2 = getdevicedata.g_02.split("/")[0];
+        const octet2 = ip2.split(".");
+
+        temp += `ip route 0.0.0.0 0.0.0.0 ${
+          octet1[0]
+        }.${octet1[1]}.${octet1[2]}.${Number(octet1[3]) - 5}\n`;
+
+        temp += `ip route 0.0.0.0 0.0.0.0 ${
+          octet2[0]
+        }.${octet2[1]}.${octet2[2]}.${Number(octet2[3]) - 5}\n`;
+        temp += `! \n`;
+        temp += `! \n`;
+      }
+    }
+    setPreconfigText(temp);
+    setTargetDevice(d);
+    setShowSwapTargetModal(false);
+    setShowPreconfigModal(true);
+  };
+
+  const handleManualSerialConfirm = async () => {
+    const trimmed = manualSerial.trim();
+    if (!trimmed) {
+      setManualSerialError("Serial number is required.");
+      return;
+    }
+    setManualSerialError("");
+    const manualDevice: Device = {
+      hostname: "Manual Entry",
+      serial: trimmed,
+      systemIp: "—",
+      siteId: "—",
+      type: "—",
+      eth0: null,
+      ge01: null,
+      ge02: null,
+      reachable: "unreachable",
+      status: "—",
+    };
+    await handleConfirmWithDevice(manualDevice);
+  };
+
   const handleSwapNow = async () => {
     if (!selectedDevice || !targetDevice || !vmanageCreds) return;
     setIsSwapping(true);
     try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_URL}/api/POST/invalidatedevice`,
-        {
-          hostname: targetDevice.hostname,
-          ip: vmanageCreds.ip,
-          username: vmanageCreds.username,
-          password: vmanageCreds.password,
-        },
-      );
-      if (response.status === 200) {
-        const sentcontrol = await axios.post(
-          `${process.env.NEXT_PUBLIC_URL}/api/POST/sendtocontroller`,
+      const isManualTarget = targetDevice.hostname === "Manual Entry";
+
+      if (!isManualTarget) {
+        const invalidateResponse = await axios.post(
+          `${process.env.NEXT_PUBLIC_URL}/api/POST/invalidatedevice`,
           {
+            chassisNumber: targetDevice.serial,
             ip: vmanageCreds.ip,
             username: vmanageCreds.username,
             password: vmanageCreds.password,
           },
         );
-        if (sentcontrol.status === 200) {
-          alert("Succcess");
+        if (invalidateResponse.status !== 200) {
+          throw new Error("Invalidate failed");
         }
+      }
+
+      const sentcontrol = await axios.post(
+        `${process.env.NEXT_PUBLIC_URL}/api/POST/sendtocontroller`,
+        {
+          ip: vmanageCreds.ip,
+          username: vmanageCreds.username,
+          password: vmanageCreds.password,
+          serial: targetDevice.serial,
+        },
+      );
+
+      if (sentcontrol.status === 200) {
+        alert("Success");
       }
 
       setSwapSuccess(true);
@@ -480,6 +622,9 @@ function DeviceDashboard({
   useEffect(() => {
     if (showSwapTargetModal) {
       setTimeout(() => swapTargetInputRef.current?.focus(), 80);
+      setIsManualMode(false);
+      setManualSerial("");
+      setManualSerialError("");
     } else {
       setSwapTargetQuery("");
     }
@@ -499,6 +644,27 @@ function DeviceDashboard({
       linear-gradient(90deg, var(--theme-grid-line) 1px, transparent 1px)
     `,
     backgroundSize: "32px 32px",
+  };
+
+  const searchHintStyle: React.CSSProperties = {
+    display: "flex",
+    gap: "6px",
+    padding: "8px 20px 12px",
+    flexShrink: 0,
+  };
+
+  const searchHintTagStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "4px",
+    padding: "3px 8px",
+    borderRadius: "100px",
+    border: "1px solid var(--theme-border)",
+    background: "var(--theme-bg-secondary)",
+    fontFamily: "'DM Mono', monospace",
+    fontSize: "10px",
+    letterSpacing: "0.06em",
+    color: "var(--theme-text-muted)",
   };
 
   return (
@@ -553,10 +719,78 @@ function DeviceDashboard({
               <input
                 ref={swapInputRef}
                 className={styles.swapSearchInput}
-                placeholder="Search hostname..."
+                placeholder="Search by hostname, IP, or serial..."
                 value={swapQuery}
                 onChange={(e) => setSwapQuery(e.target.value)}
               />
+              {swapQuery && (
+                <button
+                  onClick={() => setSwapQuery("")}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--theme-text-muted)",
+                    padding: "0 12px 0 0",
+                    fontSize: "14px",
+                    lineHeight: 1,
+                    flexShrink: 0,
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <div style={searchHintStyle}>
+              <span style={searchHintTagStyle}>
+                <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                  <rect
+                    x="1"
+                    y="1"
+                    width="10"
+                    height="10"
+                    rx="2"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                  <path
+                    d="M3 6h6M3 4h6M3 8h4"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                Hostname
+              </span>
+              <span style={searchHintTagStyle}>
+                <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                  <circle
+                    cx="6"
+                    cy="6"
+                    r="4.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                  <path
+                    d="M4 6h4M6 4v4"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                System IP
+              </span>
+              <span style={searchHintTagStyle}>
+                <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                  <path
+                    d="M2 4h8M2 8h5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                Serial
+              </span>
             </div>
             <div className={styles.swapDivider} />
             <div className={styles.swapResultCount}>
@@ -592,9 +826,11 @@ function DeviceDashboard({
                       </div>
                       <div>
                         <div className={styles.swapItemHostname}>
-                          {d.hostname}
+                          {highlightMatch(d.hostname, swapQuery)}
                         </div>
-                        <div className={styles.swapItemIp}>{d.systemIp}</div>
+                        <div className={styles.swapItemIp}>
+                          {highlightMatch(d.systemIp, swapQuery)}
+                        </div>
                         <div
                           style={{
                             fontSize: "11px",
@@ -602,7 +838,7 @@ function DeviceDashboard({
                             marginTop: "2px",
                           }}
                         >
-                          {d.serial ?? "—"}
+                          {d.serial ? highlightMatch(d.serial, swapQuery) : "—"}
                         </div>
                       </div>
                     </div>
@@ -723,186 +959,479 @@ function DeviceDashboard({
                 </div>
               </div>
             )}
-            <div className={styles.swapSearchWrap}>
-              <span className={styles.swapSearchIcon}>
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                  <circle
-                    cx="6.5"
-                    cy="6.5"
-                    r="4.5"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                  />
-                  <path
-                    d="M10 10l3.5 3.5"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </span>
-              <input
-                ref={swapTargetInputRef}
-                className={styles.swapSearchInput}
-                placeholder="Search replacement device..."
-                value={swapTargetQuery}
-                onChange={(e) => setSwapTargetQuery(e.target.value)}
-              />
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0",
+                padding: "14px 20px 0",
+                flexShrink: 0,
+              }}
+            >
+              <button
+                onClick={() => {
+                  setIsManualMode(false);
+                  setManualSerial("");
+                  setManualSerialError("");
+                }}
+                style={{
+                  flex: 1,
+                  padding: "7px 0",
+                  borderRadius: "8px 0 0 8px",
+                  border: "1px solid var(--theme-border-strong)",
+                  borderRight: "none",
+                  background: !isManualMode
+                    ? "var(--theme-accent-green)"
+                    : "var(--theme-bg-secondary)",
+                  color: !isManualMode
+                    ? "var(--theme-on-accent)"
+                    : "var(--theme-text-muted)",
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: "10px",
+                  fontWeight: 600,
+                  letterSpacing: "0.08em",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                SEARCH LIST
+              </button>
+              <button
+                onClick={() => {
+                  setIsManualMode(true);
+                  setSwapTargetQuery("");
+                  setManualSerialError("");
+                }}
+                style={{
+                  flex: 1,
+                  padding: "7px 0",
+                  borderRadius: "0 8px 8px 0",
+                  border: "1px solid var(--theme-border-strong)",
+                  background: isManualMode
+                    ? "var(--theme-accent-green)"
+                    : "var(--theme-bg-secondary)",
+                  color: isManualMode
+                    ? "var(--theme-on-accent)"
+                    : "var(--theme-text-muted)",
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: "10px",
+                  fontWeight: 600,
+                  letterSpacing: "0.08em",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                MANUAL SERIAL
+              </button>
             </div>
-            <div className={styles.swapDivider} />
-            <div className={styles.swapResultCount}>
-              {swapTargetFiltered.length} device
-              {swapTargetFiltered.length !== 1 ? "s" : ""} found
-            </div>
-            <div className={styles.swapList}>
-              {swapTargetFiltered.length === 0 ? (
-                <div className={styles.swapEmpty}>
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                    <circle
-                      cx="11"
-                      cy="11"
-                      r="7"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    />
-                    <path
-                      d="M16.5 16.5L21 21"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  No devices matched
-                </div>
-              ) : (
-                swapTargetFiltered.map((d, idx) => (
-                  <div key={idx} className={styles.swapListItem}>
-                    <div className={styles.swapItemLeft}>
-                      <div className={styles.swapItemIcon}>
-                        {d.type?.slice(0, 2).toUpperCase() ?? "—"}
-                      </div>
-                      <div>
-                        <div className={styles.swapItemHostname}>
-                          {d.hostname}
-                        </div>
-                        <div className={styles.swapItemIp}>{d.systemIp}</div>
-                        <div
-                          style={{
-                            fontSize: "11px",
-                            color: "var(--theme-text-muted)",
-                            marginTop: "2px",
-                          }}
-                        >
-                          {d.serial ?? "—"}
-                        </div>
-                      </div>
-                    </div>
-                    <div className={styles.swapItemRight}>
-                      <span className={styles.swapItemType}>{d.type}</span>
-                      <span
-                        className={cn(
-                          styles.statusBadge,
-                          d.reachable === "reachable" ? styles.up : styles.down,
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            styles.statusDot,
-                            d.reachable === "reachable"
-                              ? styles.up
-                              : styles.down,
-                          )}
-                        />
-                        {d.reachable === "reachable" ? "Up" : "Down"}
-                      </span>
-                      <button
-                        className={styles.swapItemActionBtn}
-                        onClick={async (e) => {
-                          let temp = "";
-                          e.stopPropagation();
-                          const response = await axios.post(
-                            `${process.env.NEXT_PUBLIC_URL}/api/POST/getdevicebyhostname`,
-                            {
-                              hostname: selectedDevice?.hostname,
-                            },
-                          );
 
-                          if (response.status === 200) {
-                            const getdevicedata = response.data[0];
-
-                            if (
-                              getdevicedata.roles === "vmanage" ||
-                              getdevicedata.roles === "vsmart"
-                            ) {
-                              temp += "config\n";
-                              temp += "system\n";
-                              temp += `${getdevicedata.hostname}\n`;
-                              temp += `system-ip ${getdevicedata.systemip}\n`;
-                              temp += `site-id ${getdevicedata.siteid}\n`;
-                              temp += `sp-organization-name "BAAC"\n`;
-                              temp += `organization-name "BAAC"\n`;
-                              temp += `vbond 172.26.155.17\n`;
-                              temp += `! \n`;
-                              temp += `vpn 0 \n`;
-                              temp += `int eth0\n`;
-                              temp += ` ip address ${getdevicedata.eth_0} \n`;
-                              temp += `no shutdown \n`;
-                            } else {
-                              temp += "config\n";
-                              temp += "system\n";
-                              temp += `host-name ${getdevicedata.hostname}\n`;
-                              temp += `system-ip ${getdevicedata.systemip}\n`;
-                              temp += `site-id ${getdevicedata.siteid}\n`;
-                              temp += `sp-organization-name "BAAC"\n`;
-                              temp += `organization-name "BAAC"\n`;
-                              temp += `vbond 172.26.155.17\n`;
-                              temp += `! \n`;
-                              temp += `vpn 0\n`;
-                              temp += `dns 172.26.18.32 primary\n`;
-                              temp += `dns 8.8.8.8 secondary\n`;
-                              temp += `int ge0/1 \n`;
-                              temp += `ip address ${getdevicedata.g_01}\n`;
-                              temp += `no shutdown\n`;
-                              temp += `tunnel encap ipsec\n`;
-                              temp += `color private2\n`;
-                              temp += `! \n`;
-                              temp += `int ge0/2 \n`;
-                              temp += `ip address ${getdevicedata.g_02} \n`;
-                              temp += `no shutdown\n`;
-                              temp += `tunnel encap ipsec\n`;
-                              temp += `color private3\n`;
-                              temp += `! \n`;
-                              temp += `! \n`;
-                              const ip1 = getdevicedata.g_01.split("/")[0];
-                              const octet1 = ip1.split(".");
-
-                              const ip2 = getdevicedata.g_02.split("/")[0];
-                              const octet2 = ip2.split(".");
-
-                              temp += `ip route 0.0.0.0 0.0.0.0 ${
-                                octet1[0]
-                              }.${octet1[1]}.${octet1[2]}.${Number(octet1[3]) - 5}\n`;
-
-                              temp += `ip route 0.0.0.0 0.0.0.0 ${
-                                octet2[0]
-                              }.${octet2[1]}.${octet2[2]}.${Number(octet2[3]) - 5}\n`;
-                              temp += `! \n`;
-                              temp += `! \n`;
-                            }
-                          }
-                          setPreconfigText(temp);
-                          setTargetDevice(d);
-                          setShowSwapTargetModal(false);
-                          setShowPreconfigModal(true);
+            {isManualMode ? (
+              <div style={{ padding: "14px 20px 0", flexShrink: 0 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                  }}
+                >
+                  <label
+                    style={{
+                      fontFamily: "'DM Mono', monospace",
+                      fontSize: "10px",
+                      letterSpacing: "0.1em",
+                      color: "var(--theme-text-muted)",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Replacement Device Serial Number
+                  </label>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <div
+                      style={{
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "0 12px",
+                        borderRadius: "10px",
+                        border: `1px solid ${manualSerialError ? "var(--theme-accent-red)" : "var(--theme-border-strong)"}`,
+                        background: "var(--theme-bg-secondary)",
+                        transition: "border-color 0.2s ease",
+                      }}
+                    >
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        style={{
+                          flexShrink: 0,
+                          color: "var(--theme-text-muted)",
                         }}
                       >
-                        Confirm
-                      </button>
+                        <path
+                          d="M2 5h12M2 8h8M2 11h5"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <input
+                        autoFocus
+                        value={manualSerial}
+                        onChange={(e) => {
+                          setManualSerial(e.target.value);
+                          if (manualSerialError) setManualSerialError("");
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleManualSerialConfirm();
+                        }}
+                        placeholder="e.g. ISR1100-4GLTEGB-FGL2532LKYU"
+                        style={{
+                          flex: 1,
+                          background: "transparent",
+                          border: "none",
+                          outline: "none",
+                          fontFamily: "'DM Mono', monospace",
+                          fontSize: "12px",
+                          color: "var(--theme-text-primary)",
+                          letterSpacing: "0.04em",
+                          padding: "10px 0",
+                        }}
+                      />
+                      {manualSerial && (
+                        <button
+                          onClick={() => {
+                            setManualSerial("");
+                            setManualSerialError("");
+                          }}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            color: "var(--theme-text-muted)",
+                            fontSize: "13px",
+                            lineHeight: 1,
+                            padding: 0,
+                            flexShrink: 0,
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
+                    <button
+                      onClick={handleManualSerialConfirm}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "0 16px",
+                        borderRadius: "10px",
+                        border: "none",
+                        background: "var(--theme-accent-green)",
+                        color: "var(--theme-on-accent)",
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        letterSpacing: "0.03em",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                      >
+                        <path
+                          d="M3 8l4 4 6-7"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      Confirm
+                    </button>
                   </div>
-                ))
-              )}
-            </div>
+                  {manualSerialError && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: "11px",
+                        color: "var(--theme-accent-red)",
+                      }}
+                    >
+                      <svg
+                        width="11"
+                        height="11"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                      >
+                        <circle
+                          cx="6"
+                          cy="6"
+                          r="5"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                        />
+                        <path
+                          d="M6 4v3M6 8.5v.5"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      {manualSerialError}
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      background: "var(--theme-bg-secondary)",
+                      border: "1px solid var(--theme-border)",
+                      marginTop: "2px",
+                    }}
+                  >
+                    <svg
+                      width="11"
+                      height="11"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      style={{
+                        flexShrink: 0,
+                        color: "var(--theme-text-muted)",
+                      }}
+                    >
+                      <circle
+                        cx="6"
+                        cy="6"
+                        r="5"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      />
+                      <path
+                        d="M6 5.5v3M6 4v.5"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <span
+                      style={{
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: "11px",
+                        color: "var(--theme-text-muted)",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      Enter the serial number of the new replacement device.
+                      This will be used to invalidate and push to controller.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className={styles.swapSearchWrap}>
+                  <span className={styles.swapSearchIcon}>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                      <circle
+                        cx="6.5"
+                        cy="6.5"
+                        r="4.5"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      />
+                      <path
+                        d="M10 10l3.5 3.5"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </span>
+                  <input
+                    ref={swapTargetInputRef}
+                    className={styles.swapSearchInput}
+                    placeholder="Search by hostname, IP, or serial..."
+                    value={swapTargetQuery}
+                    onChange={(e) => setSwapTargetQuery(e.target.value)}
+                  />
+                  {swapTargetQuery && (
+                    <button
+                      onClick={() => setSwapTargetQuery("")}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "var(--theme-text-muted)",
+                        padding: "0 12px 0 0",
+                        fontSize: "14px",
+                        lineHeight: 1,
+                        flexShrink: 0,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <div style={searchHintStyle}>
+                  <span style={searchHintTagStyle}>
+                    <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                      <rect
+                        x="1"
+                        y="1"
+                        width="10"
+                        height="10"
+                        rx="2"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      />
+                      <path
+                        d="M3 6h6M3 4h6M3 8h4"
+                        stroke="currentColor"
+                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    Hostname
+                  </span>
+                  <span style={searchHintTagStyle}>
+                    <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                      <circle
+                        cx="6"
+                        cy="6"
+                        r="4.5"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      />
+                      <path
+                        d="M4 6h4M6 4v4"
+                        stroke="currentColor"
+                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    System IP
+                  </span>
+                  <span style={searchHintTagStyle}>
+                    <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                      <path
+                        d="M2 4h8M2 8h5"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    Serial
+                  </span>
+                </div>
+                <div className={styles.swapDivider} />
+                <div className={styles.swapResultCount}>
+                  {swapTargetFiltered.length} device
+                  {swapTargetFiltered.length !== 1 ? "s" : ""} found
+                </div>
+                <div className={styles.swapList}>
+                  {swapTargetFiltered.length === 0 ? (
+                    <div className={styles.swapEmpty}>
+                      <svg
+                        width="28"
+                        height="28"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <circle
+                          cx="11"
+                          cy="11"
+                          r="7"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                        />
+                        <path
+                          d="M16.5 16.5L21 21"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      No devices matched
+                    </div>
+                  ) : (
+                    swapTargetFiltered.map((d, idx) => (
+                      <div key={idx} className={styles.swapListItem}>
+                        <div className={styles.swapItemLeft}>
+                          <div className={styles.swapItemIcon}>
+                            {d.type?.slice(0, 2).toUpperCase() ?? "—"}
+                          </div>
+                          <div>
+                            <div className={styles.swapItemHostname}>
+                              {highlightMatch(d.hostname, swapTargetQuery)}
+                            </div>
+                            <div className={styles.swapItemIp}>
+                              {highlightMatch(d.systemIp, swapTargetQuery)}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: "11px",
+                                color: "var(--theme-text-muted)",
+                                marginTop: "2px",
+                              }}
+                            >
+                              {d.serial
+                                ? highlightMatch(d.serial, swapTargetQuery)
+                                : "—"}
+                            </div>
+                          </div>
+                        </div>
+                        <div className={styles.swapItemRight}>
+                          <span className={styles.swapItemType}>{d.type}</span>
+                          <span
+                            className={cn(
+                              styles.statusBadge,
+                              d.reachable === "reachable"
+                                ? styles.up
+                                : styles.down,
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                styles.statusDot,
+                                d.reachable === "reachable"
+                                  ? styles.up
+                                  : styles.down,
+                              )}
+                            />
+                            {d.reachable === "reachable" ? "Up" : "Down"}
+                          </span>
+                          <button
+                            className={styles.swapItemActionBtn}
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await handleConfirmWithDevice(d);
+                            }}
+                          >
+                            Confirm
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -965,6 +1494,17 @@ function DeviceDashboard({
                   <span className={styles.preconfigRouteIp}>
                     {selectedDevice.systemIp}
                   </span>
+                  <span
+                    style={{
+                      fontFamily: "'DM Mono', monospace",
+                      fontSize: "10px",
+                      color: "var(--theme-text-muted)",
+                      letterSpacing: "0.04em",
+                      marginTop: "2px",
+                    }}
+                  >
+                    {selectedDevice.serial ?? "—"}
+                  </span>
                 </div>
                 <div className={styles.preconfigRouteArrow}>
                   <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
@@ -987,6 +1527,17 @@ function DeviceDashboard({
                   </span>
                   <span className={styles.preconfigRouteIp}>
                     {targetDevice.systemIp}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "'DM Mono', monospace",
+                      fontSize: "10px",
+                      color: "var(--theme-text-muted)",
+                      letterSpacing: "0.04em",
+                      marginTop: "2px",
+                    }}
+                  >
+                    {targetDevice.serial ?? "—"}
                   </span>
                 </div>
               </div>
