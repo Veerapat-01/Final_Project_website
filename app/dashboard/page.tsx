@@ -10,13 +10,21 @@ import styles from "./dashboard.module.css";
 
 interface Device {
   hostname: string;
+  serial: string | null;
   systemIp: string;
   siteId: string;
   type: string;
+  eth0: string | null;
   ge01: string | null;
   ge02: string | null;
   reachable: string;
   status: string;
+}
+
+interface VManageCreds {
+  ip: string;
+  username: string;
+  password: string;
 }
 
 const lightTheme = {
@@ -326,9 +334,11 @@ function ConnectionErrorBanner({ onReconnect }: { onReconnect: () => void }) {
 function DeviceDashboard({
   devices,
   isDark,
+  vmanageCreds,
 }: {
   devices: Device[];
   isDark: boolean;
+  vmanageCreds: VManageCreds | null;
 }) {
   const donutRef = useRef<HTMLCanvasElement>(null);
   const chartInstanceRef = useRef<any>(null);
@@ -385,9 +395,32 @@ function DeviceDashboard({
   const accentLight = isDark ? "#00FFCC" : "#5DCAA5";
 
   const handleSwapNow = async () => {
-    if (!selectedDevice || !targetDevice) return;
+    if (!selectedDevice || !targetDevice || !vmanageCreds) return;
     setIsSwapping(true);
     try {
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_URL}/api/POST/invalidatedevice`,
+        {
+          hostname: targetDevice.hostname,
+          ip: vmanageCreds.ip,
+          username: vmanageCreds.username,
+          password: vmanageCreds.password,
+        },
+      );
+      if (response.status === 200) {
+        const sentcontrol = await axios.post(
+          `${process.env.NEXT_PUBLIC_URL}/api/POST/sendtocontroller`,
+          {
+            ip: vmanageCreds.ip,
+            username: vmanageCreds.username,
+            password: vmanageCreds.password,
+          },
+        );
+        if (sentcontrol.status === 200) {
+          alert("Succcess");
+        }
+      }
+
       setSwapSuccess(true);
       setTimeout(() => {
         setSwapSuccess(false);
@@ -562,6 +595,15 @@ function DeviceDashboard({
                           {d.hostname}
                         </div>
                         <div className={styles.swapItemIp}>{d.systemIp}</div>
+                        <div
+                          style={{
+                            fontSize: "11px",
+                            color: "var(--theme-text-muted)",
+                            marginTop: "2px",
+                          }}
+                        >
+                          {d.serial ?? "—"}
+                        </div>
                       </div>
                     </div>
                     <div className={styles.swapItemRight}>
@@ -636,12 +678,29 @@ function DeviceDashboard({
                 <div className={styles.swapTargetFrom}>
                   <span className={styles.swapTargetFromLabel}>From</span>
                   <span className={styles.swapTargetFromArrow}>→</span>
-                  <span className={styles.swapTargetFromHostname}>
-                    {selectedDevice.hostname}
-                  </span>
-                  <span className={styles.swapTargetFromIp}>
-                    {selectedDevice.systemIp}
-                  </span>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "2px",
+                      flex: 1,
+                    }}
+                  >
+                    <span className={styles.swapTargetFromHostname}>
+                      {selectedDevice.hostname}
+                    </span>
+                    <span className={styles.swapTargetFromIp}>
+                      {selectedDevice.systemIp}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        color: "var(--theme-text-muted)",
+                      }}
+                    >
+                      {selectedDevice.serial ?? "—"}
+                    </span>
+                  </div>
                   <span
                     className={cn(
                       styles.statusBadge,
@@ -727,6 +786,15 @@ function DeviceDashboard({
                           {d.hostname}
                         </div>
                         <div className={styles.swapItemIp}>{d.systemIp}</div>
+                        <div
+                          style={{
+                            fontSize: "11px",
+                            color: "var(--theme-text-muted)",
+                            marginTop: "2px",
+                          }}
+                        >
+                          {d.serial ?? "—"}
+                        </div>
                       </div>
                     </div>
                     <div className={styles.swapItemRight}>
@@ -887,7 +955,7 @@ function DeviceDashboard({
                 ✕
               </button>
             </div>
-            <div style={{ padding: "14px 20px 0" }}>
+            <div style={{ padding: "14px 20px 0", flexShrink: 0 }}>
               <div className={styles.preconfigRoute}>
                 <div className={styles.preconfigRouteDevice}>
                   <span className={styles.preconfigRouteTag}>From</span>
@@ -925,7 +993,7 @@ function DeviceDashboard({
             </div>
             <div
               className={styles.preconfigCmdSection}
-              style={{ marginTop: 14 }}
+              style={{ marginTop: 14, flex: 1, overflow: "auto", minHeight: 0 }}
             >
               <div className={styles.preconfigCmdLabel}>
                 Preconfigure Command
@@ -963,7 +1031,7 @@ function DeviceDashboard({
                     style={{
                       width: "100%",
                       minHeight: "180px",
-                      height: "220px",
+                      height: "150px",
                       fontFamily: "'DM Mono', monospace",
                       fontSize: "12px",
                       lineHeight: "1.7",
@@ -981,7 +1049,10 @@ function DeviceDashboard({
                 </div>
               </div>
             </div>
-            <div className={styles.preconfigFooter}>
+            <div
+              className={styles.preconfigFooter}
+              style={{ marginTop: "12px" }}
+            >
               <button
                 className={styles.preconfigCloseBtn}
                 disabled={isSwapping}
@@ -994,18 +1065,6 @@ function DeviceDashboard({
               >
                 Cancel
               </button>
-              {/* <button
-                className={styles.preconfigApplyBtn}
-                disabled={isSwapping}
-                onClick={() => {
-                  setShowPreconfigModal(false);
-                  setSelectedDevice(null);
-                  setTargetDevice(null);
-                  setPreconfigText("");
-                }}
-              >
-                Apply
-              </button> */}
               <button
                 onClick={handleSwapNow}
                 disabled={isSwapping || swapSuccess}
@@ -1050,7 +1109,7 @@ function DeviceDashboard({
                         strokeLinecap="round"
                       />
                     </svg>
-                    Swapping…
+                    Proceeding…
                   </>
                 ) : swapSuccess ? (
                   <>
@@ -1076,7 +1135,7 @@ function DeviceDashboard({
                         strokeLinejoin="round"
                       />
                     </svg>
-                    Swap Now
+                    Proceed
                   </>
                 )}
               </button>
@@ -1312,21 +1371,25 @@ function DeviceDashboard({
           <div style={{ overflowX: "auto" }}>
             <table className={styles.tbl}>
               <colgroup>
-                <col style={{ width: "22%" }} />
-                <col style={{ width: "14%" }} />
-                <col style={{ width: "10%" }} />
+                <col style={{ width: "16%" }} />
                 <col style={{ width: "12%" }} />
-                <col style={{ width: "16%" }} />
-                <col style={{ width: "16%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "9%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "11%" }} />
                 <col style={{ width: "10%" }} />
               </colgroup>
               <thead>
                 <tr>
                   {[
                     "Hostname",
+                    "Serial",
                     "System IP",
                     "Site ID",
                     "Type",
+                    "eth0",
                     "ge0/1 IP",
                     "ge0/2 IP",
                     "Status",
@@ -1339,7 +1402,7 @@ function DeviceDashboard({
                 {filtered.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={9}
                       style={{
                         textAlign: "center",
                         padding: "3rem",
@@ -1356,6 +1419,11 @@ function DeviceDashboard({
                   filtered.map((d, idx) => (
                     <tr key={idx}>
                       <td style={{ fontWeight: 500 }}>{d.hostname}</td>
+                      <td
+                        className={cn(styles.mono, !d.serial && styles.muted)}
+                      >
+                        {d.serial ?? "—"}
+                      </td>
                       <td className={styles.mono}>{d.systemIp}</td>
                       <td>{d.siteId}</td>
                       <td
@@ -1368,6 +1436,9 @@ function DeviceDashboard({
                         }}
                       >
                         {d.type}
+                      </td>
+                      <td className={cn(styles.mono, !d.eth0 && styles.muted)}>
+                        {d.eth0 ?? "—"}
                       </td>
                       <td className={cn(styles.mono, !d.ge01 && styles.muted)}>
                         {d.ge01 ?? "—"}
@@ -1415,7 +1486,7 @@ export default function DashboardPage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [isDark, setIsDark] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
-  const [myconfigure, setmyconfigure] = useState("");
+  const [vmanageCreds, setVmanageCreds] = useState<VManageCreds | null>(null);
 
   const theme = isDark ? darkTheme : lightTheme;
 
@@ -1473,9 +1544,9 @@ export default function DashboardPage() {
         setShowModal(false);
         setConnectionError(false);
         setIsConnected(true);
+        setVmanageCreds(credentials);
 
         const data = deviceResponse.data.data.data;
-        console.log(data);
 
         const allDevices = data;
 
@@ -1500,10 +1571,14 @@ export default function DashboardPage() {
         const deviceTypes = allDevices.map(
           (device: { "device-type": string }) => device["device-type"],
         );
+        const uuid = allDevices.map(
+          (device: { uuid: string }) => device["uuid"],
+        );
 
         for (let i = 0; i < deviceIds.length; i++) {
           let ge01Ip: string | null = null;
           let ge02Ip: string | null = null;
+          let eth0Ip: string | null = null;
 
           try {
             const responseInterfaces = await axios.post(
@@ -1529,8 +1604,15 @@ export default function DashboardPage() {
                 (int: any) => int["af-type"] === "ipv4" && int.ifname === if2,
               ) ?? null;
 
+            const eth0Iface =
+              interfaces.find(
+                (int: any) =>
+                  int["af-type"] === "ipv4" && int.ifname === "eth0",
+              ) ?? null;
+
             ge01Ip = iface1?.["ip-address"] ?? null;
             ge02Ip = iface2?.["ip-address"] ?? null;
+            eth0Ip = eth0Iface?.["ip-address"] ?? null;
           } catch (error) {
             console.error(
               `Device ${i} (${deviceIds[i]}) getInterfaces failed`,
@@ -1545,10 +1627,12 @@ export default function DashboardPage() {
                 hostname: hostnames[i],
                 systemip: systemip[i],
                 siteid: siteIds[i],
+                eth0: eth0Ip,
                 ipad1: ge01Ip,
                 ipad2: ge02Ip,
                 deviceType: deviceTypes[i],
                 reachable: reachability[i],
+                serial: uuid[i],
               },
             );
           } catch (error) {
@@ -1562,9 +1646,11 @@ export default function DashboardPage() {
             ...prev,
             {
               hostname: hostnames[i],
+              serial: uuid[i],
               systemIp: systemip[i],
               siteId: siteIds[i],
               type: deviceTypes[i],
+              eth0: eth0Ip,
               ge01: ge01Ip,
               ge02: ge02Ip,
               reachable: reachability[i],
@@ -1621,7 +1707,11 @@ export default function DashboardPage() {
         )}
       >
         {isConnected && chartReady ? (
-          <DeviceDashboard devices={devices} isDark={isDark} />
+          <DeviceDashboard
+            devices={devices}
+            isDark={isDark}
+            vmanageCreds={vmanageCreds}
+          />
         ) : connectionError ? (
           <ConnectionErrorBanner onReconnect={handleReconnect} />
         ) : (
