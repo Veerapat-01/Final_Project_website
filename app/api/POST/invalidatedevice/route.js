@@ -1,70 +1,69 @@
-import { NextResponse } from "next/server";
 import axios from "axios";
-import https from "https";
-
-const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const { chassisNumber, ip, username, password } = body;
+    const { chassisNumber, ip, username, password, deviceSystemIp } =
+      await request.json();
 
     if (!chassisNumber || !ip || !username || !password) {
-      return NextResponse.json(
-        { error: "chassisNumber, ip, username, and password are required" },
+      return Response.json(
+        { error: "Missing required fields" },
         { status: 400 },
       );
     }
 
     const authResponse = await axios.post(
-      `https://${ip}/j_security_check`,
+      `https://${ip}:8443/j_security_check`,
       `j_username=${username}&j_password=${password}`,
       {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        httpsAgent,
-        maxRedirects: 0,
-        validateStatus: (s) => s < 400,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        httpsAgent: {
+          rejectUnauthorized: false,
+        },
+        maxRedirects: 5,
+        withCredentials: true,
       },
     );
 
-    const sessionCookie = authResponse.headers["set-cookie"]
-      ?.map((c) => c.split(";")[0])
-      .join("; ");
+    const cookies = authResponse.headers["set-cookie"];
+    const sessionCookie = cookies?.find((c) => c.includes("JSESSIONID"));
 
-    const tokenResponse = await axios.get(
-      `https://${ip}/dataservice/client/token`,
-      { headers: { Cookie: sessionCookie }, httpsAgent },
-    );
+    if (!sessionCookie) {
+      return Response.json({ error: "Authentication failed" }, { status: 401 });
+    }
 
-    const xsrfToken = tokenResponse.data;
+    const cookie = sessionCookie.split(";")[0];
 
-    const invalidateResponse = await axios.delete(
-      `https://${ip}/dataservice/certificate/${chassisNumber}`,
+    const invalidatePayload = {
+      uuid: chassisNumber,
+    };
+
+    const invalidateResponse = await axios.post(
+      `https://${ip}:8443/dataservice/certificate/device/invalidate`,
+      invalidatePayload,
       {
         headers: {
-          Cookie: sessionCookie,
-          "X-XSRF-TOKEN": xsrfToken,
+          Cookie: cookie,
           "Content-Type": "application/json",
         },
-        httpsAgent,
+        httpsAgent: {
+          rejectUnauthorized: false,
+        },
+        withCredentials: true,
       },
     );
 
-    return NextResponse.json(
-      {
-        message: `Device ${chassisNumber} invalidated successfully`,
-        deviceId: chassisNumber,
-        vmanageResponse: invalidateResponse.data,
-      },
-      { status: 200 },
-    );
+    return Response.json({
+      status: "success",
+      message: "Device invalidated successfully",
+      data: invalidateResponse.data,
+    });
   } catch (error) {
-    console.error("invalidatedevice error:", error?.response?.data ?? error);
-    return NextResponse.json(
-      {
-        error: "Failed to invalidate device",
-        detail: error?.response?.data ?? error?.message,
-      },
+    console.error("Invalidate device error:", error.message);
+    return Response.json(
+      { error: "Failed to invalidate device", details: error.message },
       { status: 500 },
     );
   }

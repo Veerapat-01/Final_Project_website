@@ -388,6 +388,7 @@ function DeviceDashboard({
   const [preconfigText, setPreconfigText] = useState("");
   const [isSwapping, setIsSwapping] = useState(false);
   const [swapSuccess, setSwapSuccess] = useState(false);
+  const [swapError, setSwapError] = useState<string | null>(null);
   const [manualSerial, setManualSerial] = useState("");
   const [manualSerialError, setManualSerialError] = useState("");
   const [isManualMode, setIsManualMode] = useState(false);
@@ -531,22 +532,30 @@ function DeviceDashboard({
   const handleSwapNow = async () => {
     if (!selectedDevice || !targetDevice || !vmanageCreds) return;
     setIsSwapping(true);
-    try {
-      const isManualTarget = targetDevice.hostname === "Manual Entry";
+    setSwapError(null);
 
-      if (!isManualTarget) {
-        const invalidateResponse = await axios.post(
-          `${process.env.NEXT_PUBLIC_URL}/api/POST/invalidatedevice`,
-          {
-            chassisNumber: targetDevice.serial,
-            ip: vmanageCreds.ip,
-            username: vmanageCreds.username,
-            password: vmanageCreds.password,
-          },
-        );
-        if (invalidateResponse.status !== 200) {
-          throw new Error("Invalidate failed");
-        }
+    try {
+      if (!selectedDevice.serial) {
+        throw new Error("Selected device has no serial number");
+      }
+
+      const invalidateResponse = await axios.post(
+        `${process.env.NEXT_PUBLIC_URL}/api/POST/invalidatedevice`,
+        {
+          chassisNumber: selectedDevice.serial,
+          deviceSystemIp: selectedDevice.systemIp,
+          ip: vmanageCreds.ip,
+          username: vmanageCreds.username,
+          password: vmanageCreds.password,
+        },
+      );
+
+      if (invalidateResponse.status !== 200) {
+        throw new Error("Device invalidation failed");
+      }
+
+      if (!targetDevice.serial) {
+        throw new Error("Target device has no serial number");
       }
 
       const sentcontrol = await axios.post(
@@ -560,20 +569,25 @@ function DeviceDashboard({
       );
 
       if (sentcontrol.status === 200) {
-        alert("Success");
+        setSwapSuccess(true);
+        setTimeout(() => {
+          setSwapSuccess(false);
+          setShowPreconfigModal(false);
+          setSelectedDevice(null);
+          setTargetDevice(null);
+          setPreconfigText("");
+          setIsSwapping(false);
+          setSwapError(null);
+        }, 1500);
+      } else {
+        throw new Error("Failed to send device to controller");
       }
-
-      setSwapSuccess(true);
-      setTimeout(() => {
-        setSwapSuccess(false);
-        setShowPreconfigModal(false);
-        setSelectedDevice(null);
-        setTargetDevice(null);
-        setPreconfigText("");
-      }, 1500);
-    } catch (err) {
-      console.error("Swap failed:", err);
-    } finally {
+    } catch (err: any) {
+      const errorMsg =
+        err.response?.data?.error ||
+        err.message ||
+        "Swap operation failed. Please try again.";
+      setSwapError(errorMsg);
       setIsSwapping(false);
     }
   };
@@ -1444,6 +1458,7 @@ function DeviceDashboard({
             setSelectedDevice(null);
             setTargetDevice(null);
             setPreconfigText("");
+            setSwapError(null);
           }}
         >
           <div
@@ -1479,6 +1494,7 @@ function DeviceDashboard({
                   setSelectedDevice(null);
                   setTargetDevice(null);
                   setPreconfigText("");
+                  setSwapError(null);
                 }}
               >
                 ✕
@@ -1542,6 +1558,62 @@ function DeviceDashboard({
                 </div>
               </div>
             </div>
+            {swapError && (
+              <div
+                style={{
+                  padding: "14px 20px 0",
+                  flexShrink: 0,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "8px",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    background: "rgba(255,68,85,0.1)",
+                    border: "1px solid var(--theme-accent-red)",
+                  }}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    style={{
+                      flexShrink: 0,
+                      marginTop: "2px",
+                      color: "var(--theme-accent-red)",
+                    }}
+                  >
+                    <circle
+                      cx="8"
+                      cy="8"
+                      r="7"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    />
+                    <path
+                      d="M8 5v4M8 12v.5"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span
+                    style={{
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: "12px",
+                      color: "var(--theme-accent-red)",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {swapError}
+                  </span>
+                </div>
+              </div>
+            )}
             <div
               className={styles.preconfigCmdSection}
               style={{ marginTop: 14, flex: 1, overflow: "auto", minHeight: 0 }}
@@ -1612,6 +1684,7 @@ function DeviceDashboard({
                   setSelectedDevice(null);
                   setTargetDevice(null);
                   setPreconfigText("");
+                  setSwapError(null);
                 }}
               >
                 Cancel
@@ -2165,10 +2238,7 @@ export default function DashboardPage() {
             ge02Ip = iface2?.["ip-address"] ?? null;
             eth0Ip = eth0Iface?.["ip-address"] ?? null;
           } catch (error) {
-            console.error(
-              `Device ${i} (${deviceIds[i]}) getInterfaces failed`,
-              error,
-            );
+            null;
           }
 
           try {
@@ -2187,10 +2257,7 @@ export default function DashboardPage() {
               },
             );
           } catch (error) {
-            console.error(
-              `Device ${i} (${deviceIds[i]}) pushdeviceinfo failed`,
-              error,
-            );
+            null;
           }
 
           setDevices((prev) => [
@@ -2211,7 +2278,6 @@ export default function DashboardPage() {
         }
       }
     } catch (error) {
-      console.error("Error occurred while connecting to vManage:", error);
       setShowModal(false);
       setConnectionError(true);
     }
