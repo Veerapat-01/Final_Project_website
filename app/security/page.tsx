@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import styles from "./security.module.css";
 
 // ─── Types ────────────────────────────────────────────────
-type Role = "Admin" | "Operator" | "Viewer" | "Auditor";
+type Role = "Admin" | "Operator" | "Normal" | "Suspended";
 type Status = "Active" | "Inactive";
 
 interface User {
@@ -22,21 +22,12 @@ interface User {
   createdAt: string;
 }
 
-// ─── Initial data ─────────────────────────────────────────
-const INITIAL_USERS: User[] = [
-  { id: "u1", name: "Veerapat S.", email: "veerapat@ait.ac.th", role: "Admin", status: "Active", lastLogin: "Just now", createdAt: "2025-01-10" },
-  { id: "u2", name: "Siriporn T.", email: "siriporn@ait.ac.th", role: "Operator", status: "Active", lastLogin: "2h ago", createdAt: "2025-02-14" },
-  { id: "u3", name: "Krit N.", email: "krit@ait.ac.th", role: "Viewer", status: "Active", lastLogin: "1d ago", createdAt: "2025-03-01" },
-  { id: "u4", name: "Nattaporn P.", email: "nattaporn@ait.ac.th", role: "Auditor", status: "Active", lastLogin: "3d ago", createdAt: "2025-03-20" },
-  { id: "u5", name: "Thanakorn W.", email: "thanakorn@ait.ac.th", role: "Viewer", status: "Inactive", lastLogin: "30d ago", createdAt: "2025-04-05" },
-];
-
 // ─── Constants ────────────────────────────────────────────
 const ROLE_META: Record<Role, { desc: string; icon: string }> = {
   Admin:    { desc: "Full access to all features and user management", icon: "🛡️" },
   Operator: { desc: "Can view and manage network devices",            icon: "⚙️" },
-  Viewer:   { desc: "Read-only access to dashboard and reports",     icon: "👁️" },
-  Auditor:  { desc: "Access to logs and compliance reports only",    icon: "📋" },
+  Normal:   { desc: "Standard access to dashboard and reports",     icon: "👁️" },
+  Suspended:{ desc: "Account disabled, no access",    icon: "🚫" },
 };
 
 const AVATAR_COLORS = [
@@ -51,15 +42,15 @@ const AVATAR_COLORS = [
 const ROLE_BADGE: Record<Role, string> = {
   Admin:    styles.roleAdmin,
   Operator: styles.roleOperator,
-  Viewer:   styles.roleViewer,
-  Auditor:  styles.roleAuditor,
+  Normal:   styles.roleViewer,
+  Suspended:  styles.roleAuditor,
 };
 
 const ROLE_ICON: Record<Role, string> = {
   Admin:    styles.roleIconAdmin,
   Operator: styles.roleIconOperator,
-  Viewer:   styles.roleIconViewer,
-  Auditor:  styles.roleIconAuditor,
+  Normal:   styles.roleIconViewer,
+  Suspended:  styles.roleIconAuditor,
 };
 
 type ActivityEntry = {
@@ -135,9 +126,33 @@ function AuthErrorModal({ message }: { message: string }) {
 
 function SecurityContent() {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [users, setUsers] = useState<User[]>([]);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<"All" | Role>("All");
+
+  useEffect(() => {
+    axios.get(`${process.env.NEXT_PUBLIC_URL}/api/GET/alllogin`)
+      .then(res => {
+        const fetchedUsers = res.data.map((d: any) => {
+          let role = (d.roles || d.staff_dept || "Normal");
+          role = role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+          if (!["Admin", "Operator", "Normal", "Suspended"].includes(role)) {
+            role = "Normal";
+          }
+          return {
+            id: d.staff_id || "u" + Math.random(),
+            name: `${d.staff_fname || ""} ${d.staff_lname || ""}`.trim(),
+            email: d.staff_email,
+            role: role as Role,
+            status: role === "Suspended" ? "Inactive" : "Active",
+            lastLogin: "—",
+            createdAt: "—"
+          };
+        });
+        setUsers(fetchedUsers);
+      })
+      .catch(console.error);
+  }, []);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -176,6 +191,12 @@ function SecurityContent() {
           if (userRole === "suspend" || userRole === "suspended") {
             setAuthError("Your account has been suspended. Please contact support.");
             setTimeout(() => router.push('/'), 3000);
+            return;
+          }
+
+          if (userRole !== "admin") {
+            setAuthError("Access Denied. Security center is restricted to Administrators.");
+            setTimeout(() => router.push('/dashboard?email=' + encodeURIComponent(dec)), 3000);
             return;
           }
 
@@ -231,16 +252,8 @@ function SecurityContent() {
   // Delete modal
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
 
-  // Activity log
-  const [activity, setActivity] = useState<ActivityEntry[]>([
-    { type: "add",    text: "<strong>Veerapat S.</strong> account created as Admin",  time: "2h ago" },
-    { type: "edit",   text: "<strong>Siriporn T.</strong> role changed to Operator",  time: "5h ago" },
-    { type: "delete", text: "<strong>Prapas K.</strong> account removed",             time: "1d ago" },
-    { type: "add",    text: "<strong>Nattaporn P.</strong> account created as Auditor", time: "2d ago" },
-  ]);
-
   // Form state
-  const [form, setForm] = useState({ name: "", email: "", role: "Viewer" as Role, status: "Active" as Status });
+  const [form, setForm] = useState({ name: "", email: "", role: "Normal" as Role, status: "Active" as Status });
   const [formError, setFormError] = useState("");
 
   // ── Filtered users ──
@@ -265,7 +278,7 @@ function SecurityContent() {
 
   // ── Role counts ──
   const roleCounts = useMemo(() => {
-    const counts: Record<Role, number> = { Admin: 0, Operator: 0, Viewer: 0, Auditor: 0 };
+    const counts: Record<Role, number> = { Admin: 0, Operator: 0, Normal: 0, Suspended: 0 };
     users.forEach((u) => counts[u.role]++);
     return counts;
   }, [users]);
@@ -273,7 +286,7 @@ function SecurityContent() {
   // ── Open Add Modal ──
   function openAdd() {
     setEditingUser(null);
-    setForm({ name: "", email: "", role: "Viewer", status: "Active" });
+    setForm({ name: "", email: "", role: "Normal", status: "Active" });
     setFormError("");
     setShowAddModal(true);
   }
@@ -287,42 +300,48 @@ function SecurityContent() {
   }
 
   // ── Save user ──
-  function handleSave() {
+  async function handleSave() {
     if (!form.name.trim()) { setFormError("Name is required."); return; }
     if (!form.email.trim() || !form.email.includes("@")) { setFormError("Valid email is required."); return; }
     setFormError("");
 
-    if (editingUser) {
-      setUsers((prev) =>
-        prev.map((u) => (u.id === editingUser.id ? { ...u, ...form } : u))
-      );
-      addActivity("edit", `<strong>${form.name}</strong> role updated to ${form.role}`);
-    } else {
-      const newUser: User = {
-        id: "u" + Date.now(),
-        name: form.name.trim(),
-        email: form.email.trim(),
-        role: form.role,
-        status: form.status,
-        lastLogin: "—",
-        createdAt: new Date().toISOString().slice(0, 10),
-      };
-      setUsers((prev) => [newUser, ...prev]);
-      addActivity("add", `<strong>${form.name}</strong> account created as ${form.role}`);
+    try {
+      if (editingUser) {
+        await axios.post(`${process.env.NEXT_PUBLIC_URL}/api/POST/updateuser`, {
+          email: form.email,
+          role: form.role
+        });
+        setUsers((prev) =>
+          prev.map((u) => (u.id === editingUser.id ? { ...u, ...form, status: form.role === "Suspended" ? "Inactive" : "Active" } : u))
+        );
+      } else {
+        await axios.post(`${process.env.NEXT_PUBLIC_URL}/api/POST/adduser`, {
+          name: form.name.trim(),
+          email: form.email.trim(),
+          role: form.role
+        });
+        const newUser: User = {
+          id: "u" + Date.now(),
+          name: form.name.trim(),
+          email: form.email.trim(),
+          role: form.role,
+          status: form.role === "Suspended" ? "Inactive" : "Active",
+          lastLogin: "—",
+          createdAt: new Date().toISOString().slice(0, 10),
+        };
+        setUsers((prev) => [newUser, ...prev]);
+      }
+      setShowAddModal(false);
+    } catch (err: any) {
+      setFormError(err.response?.data?.error || err.message || "An error occurred");
     }
-    setShowAddModal(false);
   }
 
   // ── Confirm delete ──
   function handleDelete() {
     if (!deletingUser) return;
     setUsers((prev) => prev.filter((u) => u.id !== deletingUser.id));
-    addActivity("delete", `<strong>${deletingUser.name}</strong> account removed`);
     setDeletingUser(null);
-  }
-
-  function addActivity(type: ActivityEntry["type"], text: string) {
-    setActivity((prev) => [{ type, text, time: nowStr() }, ...prev.slice(0, 9)]);
   }
 
   return (
@@ -398,7 +417,7 @@ function SecurityContent() {
                   <span className={styles.panelCount}>{filteredUsers.length}</span>
                 </div>
                 <div className={styles.filterTabs}>
-                  {(["All", "Admin", "Operator", "Viewer", "Auditor"] as const).map((r) => (
+                  {(["All", "Admin", "Operator", "Normal", "Suspended"] as const).map((r) => (
                     <button
                       key={r}
                       className={cn(styles.filterTab, roleFilter === r && styles.active)}
@@ -520,7 +539,7 @@ function SecurityContent() {
                     Roles & Permissions
                   </div>
                 </div>
-                {(["Admin", "Operator", "Viewer", "Auditor"] as Role[]).map((role) => (
+                {(["Admin", "Operator", "Normal", "Suspended"] as Role[]).map((role) => (
                   <div key={role} className={styles.roleCard}>
                     <div className={cn(styles.roleIcon, ROLE_ICON[role])}>
                       <span style={{ fontSize: "15px" }}>{ROLE_META[role].icon}</span>
@@ -534,35 +553,7 @@ function SecurityContent() {
                 ))}
               </div>
 
-              {/* Activity Log */}
-              <div className={styles.panel}>
-                <div className={styles.panelHeader}>
-                  <div className={styles.panelTitle}>
-                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.4" />
-                      <path d="M8 5v3l2 2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                    </svg>
-                    Recent Activity
-                  </div>
-                </div>
-                {activity.slice(0, 6).map((a, idx) => (
-                  <div key={idx} className={styles.activityItem}>
-                    <span
-                      className={cn(
-                        styles.activityDot,
-                        a.type === "add"    && styles.activityDotAdd,
-                        a.type === "delete" && styles.activityDotDelete,
-                        a.type === "edit"   && styles.activityDotEdit,
-                      )}
-                    />
-                    <span
-                      className={styles.activityText}
-                      dangerouslySetInnerHTML={{ __html: a.text }}
-                    />
-                    <span className={styles.activityTime}>{a.time}</span>
-                  </div>
-                ))}
-              </div>
+
             </div>
           </div>
         </div>
@@ -614,8 +605,8 @@ function SecurityContent() {
                   >
                     <option value="Admin">Admin — Full access</option>
                     <option value="Operator">Operator — Device management</option>
-                    <option value="Viewer">Viewer — Read-only</option>
-                    <option value="Auditor">Auditor — Logs & compliance</option>
+                    <option value="Normal">Normal — Standard access</option>
+                    <option value="Suspended">Suspended — Account disabled</option>
                   </select>
                   <span className={styles.selectCaret}>
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
