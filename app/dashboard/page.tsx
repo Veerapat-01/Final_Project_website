@@ -542,45 +542,42 @@ function DeviceDashboard({
       const invalidateResponse = await axios.post(
         `${process.env.NEXT_PUBLIC_URL}/api/POST/invalidatedevice`,
         {
-          chassisNumber: selectedDevice.serial,
-          deviceSystemIp: selectedDevice.systemIp,
+          chassisNumber: targetDevice.serial,
+          deviceSystemIp: targetDevice.systemIp,
           ip: vmanageCreds.ip,
           username: vmanageCreds.username,
           password: vmanageCreds.password,
         },
       );
 
-      if (invalidateResponse.status !== 200) {
-        throw new Error("Device invalidation failed");
-      }
+      if (invalidateResponse.status === 200) {
+        const sendToControllerResponse = await axios.post(
+          `${process.env.NEXT_PUBLIC_URL}/api/POST/sendtocontroller`,
+          {
+            ip: vmanageCreds.ip,
+            username: vmanageCreds.username,
+            password: vmanageCreds.password,
+            // Omit serial to push ALL pending changes to vSmart controllers
+          }
+        );
 
-      if (!targetDevice.serial) {
-        throw new Error("Target device has no serial number");
-      }
-
-      const sentcontrol = await axios.post(
-        `${process.env.NEXT_PUBLIC_URL}/api/POST/sendtocontroller`,
-        {
-          ip: vmanageCreds.ip,
-          username: vmanageCreds.username,
-          password: vmanageCreds.password,
-          serial: targetDevice.serial,
-        },
-      );
-
-      if (sentcontrol.status === 200) {
-        setSwapSuccess(true);
-        setTimeout(() => {
-          setSwapSuccess(false);
-          setShowPreconfigModal(false);
-          setSelectedDevice(null);
-          setTargetDevice(null);
-          setPreconfigText("");
-          setIsSwapping(false);
-          setSwapError(null);
-        }, 1500);
+        if (sendToControllerResponse.status === 200) {
+          setSwapSuccess(true);
+          window.alert("Success! The device has been successfully invalidated and pushed to the controllers.");
+          setTimeout(() => {
+            setSwapSuccess(false);
+            setShowPreconfigModal(false);
+            setSelectedDevice(null);
+            setTargetDevice(null);
+            setPreconfigText("");
+            setIsSwapping(false);
+            setSwapError(null);
+          }, 1500);
+        } else {
+          throw new Error("Failed to push to controller");
+        }
       } else {
-        throw new Error("Failed to send device to controller");
+        throw new Error("Device invalidation failed");
       }
     } catch (err: any) {
       const errorMsg =
