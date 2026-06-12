@@ -3,6 +3,7 @@
 import { useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
+import { encrypt } from "./encrypt";
 
 /* ── Toast state type ── */
 type ToastType = "success" | "error" | null;
@@ -116,8 +117,9 @@ export default function Page() {
         const data = response.data[0];
         if (data.staff_email === email && data.staff_password === password) {
           setToast("success");
+          const encryptedEmail = await encrypt(email);
           setTimeout(() => {
-            router.push("/dashboard");
+            router.push(`/dashboard?email=${encodeURIComponent(encryptedEmail)}`);
           }, 2000);
         } else {
           setToast("error");

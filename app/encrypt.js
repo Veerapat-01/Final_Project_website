@@ -1,14 +1,28 @@
+"use server";
+
 import crypto from "crypto";
 
-const SECRET_KEY = process.env.NEXT_PUBLIC_SECRET_KEY;
+const SECRET_KEY = process.env.NEXT_PUBLIC_SECRET_KEY || "12345678901234567890123456789012";
+// Ensure key is exactly 32 bytes for aes-256-cbc
+const getKey = () => {
+  let key = SECRET_KEY;
+  if (key.length < 32) {
+    key = key.padEnd(32, "0");
+  } else if (key.length > 32) {
+    key = key.substring(0, 32);
+  }
+  return Buffer.from(key);
+};
+
 const IV_LENGTH = 16;
 
-export function encrypt(text) {
+export async function encrypt(text) {
+  if (!text) return "";
   const iv = crypto.randomBytes(IV_LENGTH);
 
   const cipher = crypto.createCipheriv(
     "aes-256-cbc",
-    Buffer.from(SECRET_KEY),
+    getKey(),
     iv,
   );
 
@@ -18,17 +32,27 @@ export function encrypt(text) {
   return iv.toString("hex") + ":" + encrypted.toString("hex");
 }
 
-export function decrypt(text) {
-  const [iv, encryptedText] = text.split(":");
+export async function decrypt(text) {
+  if (!text || typeof text !== "string") return "";
+  if (!text.includes(":")) return text; // Not encrypted or wrong format
+  
+  try {
+    const [ivHex, encryptedTextHex] = text.split(":");
+    const iv = Buffer.from(ivHex, "hex");
+    const encryptedText = Buffer.from(encryptedTextHex, "hex");
 
-  const decipher = crypto.createDecipheriv(
-    "aes-256-cbc",
-    Buffer.from(SECRET_KEY),
-    Buffer.from(iv, "hex"),
-  );
+    const decipher = crypto.createDecipheriv(
+      "aes-256-cbc",
+      getKey(),
+      iv,
+    );
 
-  let decrypted = decipher.update(Buffer.from(encryptedText, "hex"));
-  decrypted = Buffer.concat([decrypted, decipher.final()]);
+    let decrypted = decipher.update(encryptedText);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
 
-  return decrypted.toString();
+    return decrypted.toString();
+  } catch (error) {
+    console.error("Decryption error:", error);
+    return "";
+  }
 }

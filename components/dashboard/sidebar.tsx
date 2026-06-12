@@ -20,7 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useState, createContext, useContext } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 const SidebarContext = createContext<{
@@ -66,6 +66,15 @@ export function Sidebar({
 }: { isCollapsed?: boolean; onToggle?: () => void } = {}) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const emailParam = searchParams?.get("email");
+
+  const getHref = (basePath: string) => {
+    if (emailParam) {
+      return `${basePath}?email=${encodeURIComponent(emailParam)}`;
+    }
+    return basePath;
+  };
 
   return (
     <aside
@@ -122,7 +131,7 @@ export function Sidebar({
                 return (
                   <Link
                     key={item.label}
-                    href={item.href}
+                    href={getHref(item.href)}
                     title={isCollapsed ? item.label : undefined}
                     className={cn(
                       "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-normal transition-colors",
@@ -163,7 +172,7 @@ export function Sidebar({
                 return (
                   <Link
                     key={item.label}
-                    href={item.href}
+                    href={getHref(item.href)}
                     title={isCollapsed ? item.label : undefined}
                     className={cn(
                       "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-normal transition-colors",

@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { decrypt } from "@/app/encrypt";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { VManageConnectionModal } from "@/components/dashboard/vmanage-connection-modal";
 import { cn } from "@/lib/utils";
@@ -2099,7 +2101,57 @@ function DeviceDashboard({
   );
 }
 
-export default function DashboardPage() {
+function AuthErrorModal({ message }: { message: string }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      background: "rgba(0,0,0,0.4)", backdropFilter: "blur(8px)",
+      animation: "authFadeIn 0.3s ease"
+    }}>
+      <div style={{
+        background: "var(--theme-bg-card, #fff)",
+        padding: "32px", borderRadius: "24px",
+        boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+        maxWidth: "400px", width: "90%", textAlign: "center",
+        border: "1px solid var(--theme-accent-red, #E24B4A)"
+      }}>
+        <div style={{
+          width: "64px", height: "64px", borderRadius: "50%",
+          background: "rgba(226,75,74,0.1)", color: "var(--theme-accent-red, #E24B4A)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          margin: "0 auto 20px", fontSize: "28px"
+        }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </div>
+        <h2 style={{ margin: "0 0 12px", color: "var(--theme-text-primary, #000)", fontSize: "20px", fontFamily: "'Syne', sans-serif" }}>
+          Access Denied
+        </h2>
+        <p style={{ margin: 0, color: "var(--theme-text-secondary, #666)", fontSize: "14px", lineHeight: "1.5" }}>
+          {message}
+        </p>
+        <div style={{
+          marginTop: "24px", width: "100%", height: "4px", background: "rgba(226,75,74,0.1)", borderRadius: "4px", overflow: "hidden"
+        }}>
+          <div style={{
+            width: "100%", height: "100%", background: "var(--theme-accent-red, #E24B4A)",
+            animation: "authShrink 3s linear forwards"
+          }} />
+        </div>
+      </div>
+      <style>{`
+        @keyframes authFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes authShrink { from { width: 100%; } to { width: 0%; } }
+      `}</style>
+    </div>
+  );
+}
+
+function DashboardContent() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -2107,6 +2159,65 @@ export default function DashboardPage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [isDark, setIsDark] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const encryptedEmail = searchParams?.get("email");
+  const [email, setEmail] = useState("");
+  const [authError, setAuthError] = useState("");
+
+  useEffect(() => {
+    if (!encryptedEmail) {
+      setAuthError("No authentication token provided. Redirecting to login...");
+      setTimeout(() => router.push('/'), 3000);
+      return;
+    }
+
+    decrypt(encryptedEmail).then(async (dec) => {
+      if (!dec) {
+        setAuthError("Invalid encryption token. Redirecting to login...");
+        setTimeout(() => router.push('/'), 3000);
+        return;
+      }
+
+      try {
+        const response = await axios.post(`${process.env.NEXT_PUBLIC_URL}/api/POST/getlogin`, {
+          email: dec
+        });
+
+        if (response.status === 200 && response.data && response.data.length > 0) {
+          const data = response.data[0];
+          
+          if (data.staff_email !== dec) {
+            setAuthError("Email mismatch. Redirecting to login...");
+            setTimeout(() => router.push('/'), 3000);
+            return;
+          }
+
+          const userRole = (data.role || data.roles || data.staff_role || data["staff dept"] || "").toLowerCase();
+          if (userRole === "suspend" || userRole === "suspended") {
+            setAuthError("Your account has been suspended. Please contact support.");
+            setTimeout(() => router.push('/'), 3000);
+            return;
+          }
+
+          setEmail(dec);
+          console.log("Decrypted email:", dec);
+        } else {
+          setAuthError("User not found or invalid credentials. Redirecting to login...");
+          setTimeout(() => router.push('/'), 3000);
+        }
+      } catch (error) {
+        console.error(error);
+        setAuthError("Failed to authenticate user. Redirecting to login...");
+        setTimeout(() => router.push('/'), 3000);
+      }
+    }).catch((error) => {
+      console.error(error);
+      setAuthError("Authentication error. Redirecting to login...");
+      setTimeout(() => router.push('/'), 3000);
+    });
+  }, [encryptedEmail, router]);
   const [vmanageCreds, setVmanageCreds] = useState<VManageCreds | null>(null);
 
   const theme = isDark ? darkTheme : lightTheme;
@@ -2300,6 +2411,8 @@ export default function DashboardPage() {
 
       <ThemeToggle isDark={isDark} onToggle={() => setIsDark(!isDark)} />
 
+      {authError && <AuthErrorModal message={authError} />}
+
       {showModal && (
         <VManageConnectionModal
           onConnect={handleConnect}
@@ -2473,5 +2586,13 @@ export default function DashboardPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--theme-text-primary)' }}>Loading dashboard...</div>}>
+      <DashboardContent />
+    </Suspense>
   );
 }
