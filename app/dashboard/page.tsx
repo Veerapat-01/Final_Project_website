@@ -368,10 +368,12 @@ function DeviceDashboard({
   devices,
   isDark,
   vmanageCreds,
+  onRefresh,
 }: {
   devices: Device[];
   isDark: boolean;
   vmanageCreds: VManageCreds | null;
+  onRefresh: () => void;
 }) {
   const donutRef = useRef<HTMLCanvasElement>(null);
   const chartInstanceRef = useRef<any>(null);
@@ -1964,6 +1966,28 @@ function DeviceDashboard({
             <div className={styles.filterBar}>
               <button
                 className={styles.swapBtn}
+                onClick={onRefresh}
+                style={{ marginRight: "4px" }}
+              >
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M14 8A6 6 0 112 8"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M14 4v4h-4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Refresh
+              </button>
+              <button
+                className={styles.swapBtn}
                 onClick={() => setShowSwapModal(true)}
               >
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
@@ -2159,6 +2183,7 @@ function DashboardContent() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [isDark, setIsDark] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
+  const [isLoadingDB, setIsLoadingDB] = useState(true);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -2247,9 +2272,38 @@ function DashboardContent() {
     document.body.style.transition = "background 0.4s ease";
   }, [isDark]);
 
+  const loadDevicesFromDB = async (showLoading = false) => {
+    try {
+      if (showLoading) setIsLoadingDB(true);
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_URL}/api/GET/alldevices`);
+      if (res.status === 200 && Array.isArray(res.data) && res.data.length > 0) {
+        const mapped: Device[] = res.data.map((row: any) => ({
+          hostname: row.hostname,
+          serial: row.serial ?? null,
+          systemIp: row.systemip,
+          siteId: row.siteid,
+          type: row.roles,
+          eth0: row.eth_0 ?? null,
+          ge01: row.g_01 ?? null,
+          ge02: row.g_02 ?? null,
+          reachable: row.reachable,
+          status: row.reachable,
+        }));
+        setDevices(mapped);
+        setIsConnected(true);
+      }
+    } catch (_) {
+    } finally {
+      if (showLoading) setIsLoadingDB(false);
+    }
+  };
+
   useEffect(() => {
-    const timer = setTimeout(() => setShowModal(true), 700);
-    return () => clearTimeout(timer);
+    loadDevicesFromDB(true);
+    const interval = setInterval(() => {
+      loadDevicesFromDB(false);
+    }, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleConnect = async (credentials: {
@@ -2279,7 +2333,6 @@ function DashboardContent() {
         setVmanageCreds(credentials);
 
         const data = deviceResponse.data.data.data;
-
         const allDevices = data;
 
         const deviceIds = allDevices.map(
@@ -2307,6 +2360,19 @@ function DashboardContent() {
           (device: { uuid: string }) => device["uuid"],
         );
 
+        let dbRes: any[] = [];
+        try {
+          const dbResponse = await axios.get(`${process.env.NEXT_PUBLIC_URL}/api/GET/alldevices`);
+          if (dbResponse.status === 200 && Array.isArray(dbResponse.data)) {
+            dbRes = dbResponse.data;
+          }
+        } catch (_) {}
+
+        const dbSerials = new Set(dbRes.map((r: any) => r.serial).filter(Boolean));
+        const dbHostnames = new Set(dbRes.map((r: any) => r.hostname).filter(Boolean));
+
+        const newDevices: Device[] = [];
+
         for (let i = 0; i < deviceIds.length; i++) {
           let ge01Ip: string | null = null;
           let ge02Ip: string | null = null;
@@ -2323,7 +2389,6 @@ function DashboardContent() {
             );
 
             const interfaces = responseInterfaces.data.data.data;
-
             const { if1, if2 } = resolveIfnames(deviceTypes[i]);
 
             const iface1 =
@@ -2345,45 +2410,46 @@ function DashboardContent() {
             ge01Ip = iface1?.["ip-address"] ?? null;
             ge02Ip = iface2?.["ip-address"] ?? null;
             eth0Ip = eth0Iface?.["ip-address"] ?? null;
-          } catch (error) {
-            null;
+          } catch (_) {}
+
+          const alreadyInDB =
+            (uuid[i] && dbSerials.has(uuid[i])) ||
+            (!uuid[i] && dbHostnames.has(hostnames[i]));
+
+          if (!alreadyInDB) {
+            try {
+              await axios.post(
+                `${process.env.NEXT_PUBLIC_URL}/api/POST/pushdeviceinfo`,
+                {
+                  hostname: hostnames[i],
+                  systemip: systemip[i],
+                  siteid: siteIds[i],
+                  eth0: eth0Ip,
+                  ipad1: ge01Ip,
+                  ipad2: ge02Ip,
+                  deviceType: deviceTypes[i],
+                  reachable: reachability[i],
+                  serial: uuid[i],
+                },
+              );
+            } catch (_) {}
           }
 
-          try {
-            await axios.post(
-              `${process.env.NEXT_PUBLIC_URL}/api/POST/pushdeviceinfo`,
-              {
-                hostname: hostnames[i],
-                systemip: systemip[i],
-                siteid: siteIds[i],
-                eth0: eth0Ip,
-                ipad1: ge01Ip,
-                ipad2: ge02Ip,
-                deviceType: deviceTypes[i],
-                reachable: reachability[i],
-                serial: uuid[i],
-              },
-            );
-          } catch (error) {
-            null;
-          }
-
-          setDevices((prev) => [
-            ...prev,
-            {
-              hostname: hostnames[i],
-              serial: uuid[i],
-              systemIp: systemip[i],
-              siteId: siteIds[i],
-              type: deviceTypes[i],
-              eth0: eth0Ip,
-              ge01: ge01Ip,
-              ge02: ge02Ip,
-              reachable: reachability[i],
-              status: status[i],
-            },
-          ]);
+          newDevices.push({
+            hostname: hostnames[i],
+            serial: uuid[i],
+            systemIp: systemip[i],
+            siteId: siteIds[i],
+            type: deviceTypes[i],
+            eth0: eth0Ip,
+            ge01: ge01Ip,
+            ge02: ge02Ip,
+            reachable: reachability[i],
+            status: status[i],
+          });
         }
+
+        setDevices(newDevices);
       }
     } catch (error) {
       setShowModal(false);
@@ -2433,14 +2499,50 @@ function DashboardContent() {
           isCollapsed ? "lg:ml-16" : "lg:ml-60",
         )}
       >
-        {isConnected && chartReady ? (
+        {isConnected ? (
           <DeviceDashboard
             devices={devices}
             isDark={isDark}
             vmanageCreds={vmanageCreds}
+            onRefresh={() => setShowModal(true)}
           />
         ) : connectionError ? (
           <ConnectionErrorBanner onReconnect={handleReconnect} />
+        ) : isLoadingDB ? (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "60vh",
+              gap: "20px",
+            }}
+          >
+            <div style={{ position: "relative", width: "72px", height: "72px" }}>
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: "50%",
+                  border: "2px solid var(--theme-border)",
+                  borderTop: "2px solid var(--theme-accent-green)",
+                  animation: "spin 1.2s linear infinite",
+                }}
+              />
+            </div>
+            <div
+              style={{
+                fontFamily: "'DM Mono', monospace",
+                fontSize: "11px",
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "var(--theme-text-muted)",
+              }}
+            >
+              Loading from database...
+            </div>
+          </div>
         ) : (
           <div
             style={{
