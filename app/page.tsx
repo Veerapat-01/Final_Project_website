@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import { encrypt } from "./encrypt";
@@ -153,26 +154,27 @@ export default function Page() {
         <div className="left-overlay" />
 
         <div className="logo-area">
-          <div className="logo-icon">
-            <svg width="22" height="22" viewBox="0 0 36 36">
-              <ellipse
-                cx="15"
-                cy="18"
-                rx="7"
-                ry="10"
-                fill="none"
-                stroke="#fff"
-                strokeWidth="2.5"
-              />
-              <ellipse
-                cx="21"
-                cy="18"
-                rx="7"
-                ry="10"
-                fill="#fff"
-                opacity="0.9"
-              />
-            </svg>
+          <div 
+            className="logo-icon" 
+            style={{ 
+              background: 'rgba(255, 255, 255, 0.1)', 
+              backdropFilter: 'blur(8px)', 
+              border: '1px solid rgba(255, 255, 255, 0.2)', 
+              borderRadius: '12px', 
+              padding: '6px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+            }}
+          >
+            <Image 
+              src="/ait.png" 
+              alt="AIT Logo" 
+              width={28} 
+              height={28} 
+              className="object-contain drop-shadow-sm brightness-110" 
+            />
           </div>
           <div>
             <div className="logo-text-main">AIT</div>
@@ -212,26 +214,26 @@ export default function Page() {
         </div>
 
         <div className="footer-bar">
-          <div className="logo-icon" style={{ width: 20, height: 20 }}>
-            <svg width="12" height="12" viewBox="0 0 36 36">
-              <ellipse
-                cx="15"
-                cy="18"
-                rx="7"
-                ry="10"
-                fill="none"
-                stroke="#fff"
-                strokeWidth="3"
-              />
-              <ellipse
-                cx="21"
-                cy="18"
-                rx="7"
-                ry="10"
-                fill="#fff"
-                opacity="0.9"
-              />
-            </svg>
+          <div 
+            className="logo-icon" 
+            style={{ 
+              width: 24, 
+              height: 24, 
+              background: 'rgba(255, 255, 255, 0.15)', 
+              borderRadius: '6px', 
+              padding: '3px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <Image 
+              src="/ait.png" 
+              alt="AIT Logo" 
+              width={16} 
+              height={16} 
+              className="object-contain drop-shadow-sm brightness-110 opacity-90" 
+            />
           </div>
           <span className="footer-text">AIT Professional ICT Solutions</span>
         </div>

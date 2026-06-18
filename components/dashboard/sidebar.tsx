@@ -79,8 +79,9 @@ function SidebarInner({
   return (
     <aside
       className={cn(
-        "fixed top-0 left-0 bg-sidebar border-r border-sidebar-border h-screen overflow-y-auto lg:block transition-all duration-300 ease-in-out",
-        isCollapsed ? "w-16" : "w-60",
+        "fixed top-0 left-0 h-screen overflow-y-auto lg:block transition-all duration-300 ease-in-out z-40",
+        "bg-sidebar/95 backdrop-blur-xl border-r border-sidebar-border shadow-[4px_0_24px_rgba(0,0,0,0.04)]",
+        isCollapsed ? "w-20" : "w-64",
       )}
     >
       <div className={cn("p-4", isCollapsed && "px-2")}>
@@ -119,13 +120,14 @@ function SidebarInner({
         </div>
 
         <div className="space-y-4">
-          <div>
+          <div className="mb-6">
             {!isCollapsed && (
-              <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wide px-2">
-                WORKSPACE
+              <p className="text-[11px] font-bold text-muted-foreground/70 mb-3 uppercase tracking-wider px-3 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-primary/40"></span>
+                Workspace
               </p>
             )}
-            <nav className="space-y-0.5">
+            <nav className="space-y-1 px-2">
               {menuItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
@@ -134,25 +136,35 @@ function SidebarInner({
                     href={getHref(item.href)}
                     title={isCollapsed ? item.label : undefined}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-normal transition-colors",
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-300 group relative overflow-hidden",
                       isActive
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
-                      isCollapsed && "justify-center",
+                        ? "text-primary font-semibold bg-primary/10 shadow-[inset_3px_0_0_hsl(var(--primary))]"
+                        : "text-muted-foreground font-medium hover:bg-sidebar-accent/60 hover:text-foreground",
+                      isCollapsed && "justify-center px-0",
                     )}
                   >
+                    {isActive && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-50" />
+                    )}
                     <item.icon
-                      className={cn("w-4 h-4", isCollapsed && "w-4.5 h-4.5")}
+                      className={cn(
+                        "w-[18px] h-[18px] transition-all duration-300 relative z-10",
+                        !isActive && "group-hover:scale-110 group-hover:text-primary/70",
+                        isActive && "drop-shadow-sm",
+                        isCollapsed && "w-5 h-5"
+                      )}
                     />
                     {!isCollapsed && (
-                      <>
-                        <span className="text-sm">{item.label}</span>
+                      <div className="flex-1 flex items-center justify-between relative z-10">
+                        <span className="truncate transition-transform duration-300 group-hover:translate-x-0.5">
+                          {item.label}
+                        </span>
                         {item.badge && (
-                          <span className="ml-auto bg-muted text-foreground text-[10px] font-medium px-1.5 py-0.5 rounded">
+                          <span className="bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
                             {item.badge}
                           </span>
                         )}
-                      </>
+                      </div>
                     )}
                   </Link>
                 );
@@ -160,13 +172,14 @@ function SidebarInner({
             </nav>
           </div>
 
-          <div>
+          <div className="mb-6">
             {!isCollapsed && (
-              <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wide px-2">
+              <p className="text-[11px] font-bold text-muted-foreground/70 mb-3 uppercase tracking-wider px-3 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-destructive/40"></span>
                 Security Centre
               </p>
             )}
-            <nav className="space-y-0.5">
+            <nav className="space-y-1 px-2">
               {securityItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
@@ -175,25 +188,35 @@ function SidebarInner({
                     href={getHref(item.href)}
                     title={isCollapsed ? item.label : undefined}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-normal transition-colors",
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-300 group relative overflow-hidden",
                       isActive
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
-                      isCollapsed && "justify-center",
+                        ? "text-primary font-semibold bg-primary/10 shadow-[inset_3px_0_0_hsl(var(--primary))]"
+                        : "text-muted-foreground font-medium hover:bg-sidebar-accent/60 hover:text-foreground",
+                      isCollapsed && "justify-center px-0",
                     )}
                   >
+                    {isActive && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-50" />
+                    )}
                     <item.icon
-                      className={cn("w-4 h-4", isCollapsed && "w-4.5 h-4.5")}
+                      className={cn(
+                        "w-[18px] h-[18px] transition-all duration-300 relative z-10",
+                        !isActive && "group-hover:scale-110 group-hover:text-primary/70",
+                        isActive && "drop-shadow-sm",
+                        isCollapsed && "w-5 h-5"
+                      )}
                     />
                     {!isCollapsed && (
-                      <>
-                        <span className="text-sm">{item.label}</span>
+                      <div className="flex-1 flex items-center justify-between relative z-10">
+                        <span className="truncate transition-transform duration-300 group-hover:translate-x-0.5">
+                          {item.label}
+                        </span>
                         {item.badge && (
-                          <span className="ml-auto bg-muted text-foreground text-[10px] font-medium px-1.5 py-0.5 rounded">
+                          <span className="bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
                             {item.badge}
                           </span>
                         )}
-                      </>
+                      </div>
                     )}
                   </Link>
                 );

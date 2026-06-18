@@ -369,11 +369,13 @@ function DeviceDashboard({
   isDark,
   vmanageCreds,
   onRefresh,
+  onRequestVManageLogin,
 }: {
   devices: Device[];
   isDark: boolean;
   vmanageCreds: VManageCreds | null;
   onRefresh: () => void;
+  onRequestVManageLogin: () => void;
 }) {
   const donutRef = useRef<HTMLCanvasElement>(null);
   const chartInstanceRef = useRef<any>(null);
@@ -396,6 +398,8 @@ function DeviceDashboard({
   const [manualSerial, setManualSerial] = useState("");
   const [manualSerialError, setManualSerialError] = useState("");
   const [isManualMode, setIsManualMode] = useState(false);
+  const [pendingSwap, setPendingSwap] = useState(false);
+  const [needsLoginBeforeSwap, setNeedsLoginBeforeSwap] = useState(false);
 
   const total = devices.length;
   const reach = devices.filter((d) => d.reachable === "reachable").length;
@@ -534,64 +538,90 @@ function DeviceDashboard({
   };
 
   const handleSwapNow = async () => {
-    if (!selectedDevice || !targetDevice || !vmanageCreds) return;
+    if (!selectedDevice || !targetDevice) return;
+
+    if (!vmanageCreds) {
+      setPendingSwap(true);
+      onRequestVManageLogin();
+      return;
+    }
+
     setIsSwapping(true);
     setSwapError(null);
+    console.log(`old:${selectedDevice.hostname}`);
+    console.log(`old:${selectedDevice.serial}`);
+    console.log(`new:${targetDevice.hostname}`);
+    console.log(`new:${targetDevice.serial}`);
+    // try {
+    //   if (!selectedDevice.serial) {
+    //     throw new Error("Selected device has no serial number");
+    //   }
 
-    try {
-      if (!selectedDevice.serial) {
-        throw new Error("Selected device has no serial number");
-      }
+    //   const invalidateResponse = await axios.post(
+    //     `${process.env.NEXT_PUBLIC_URL}/api/POST/invalidatedevice`,
+    //     {
+    //       chassisNumber: targetDevice.serial,
+    //       deviceSystemIp: targetDevice.systemIp,
+    //       ip: vmanageCreds.ip,
+    //       username: vmanageCreds.username,
+    //       password: vmanageCreds.password,
+    //     },
+    //   );
 
-      const invalidateResponse = await axios.post(
-        `${process.env.NEXT_PUBLIC_URL}/api/POST/invalidatedevice`,
-        {
-          chassisNumber: targetDevice.serial,
-          deviceSystemIp: targetDevice.systemIp,
-          ip: vmanageCreds.ip,
-          username: vmanageCreds.username,
-          password: vmanageCreds.password,
-        },
-      );
+    //   if (invalidateResponse.status === 200) {
+    //     const sendToControllerResponse = await axios.post(
+    //       `${process.env.NEXT_PUBLIC_URL}/api/POST/sendtocontroller`,
+    //       {
+    //         ip: vmanageCreds.ip,
+    //         username: vmanageCreds.username,
+    //         password: vmanageCreds.password,
+    //       },
+    //     );
 
-      if (invalidateResponse.status === 200) {
-        const sendToControllerResponse = await axios.post(
-          `${process.env.NEXT_PUBLIC_URL}/api/POST/sendtocontroller`,
-          {
-            ip: vmanageCreds.ip,
-            username: vmanageCreds.username,
-            password: vmanageCreds.password,
-            // Omit serial to push ALL pending changes to vSmart controllers
-          }
-        );
-
-        if (sendToControllerResponse.status === 200) {
-          setSwapSuccess(true);
-          window.alert("Success! The device has been successfully invalidated and pushed to the controllers.");
-          setTimeout(() => {
-            setSwapSuccess(false);
-            setShowPreconfigModal(false);
-            setSelectedDevice(null);
-            setTargetDevice(null);
-            setPreconfigText("");
-            setIsSwapping(false);
-            setSwapError(null);
-          }, 1500);
-        } else {
-          throw new Error("Failed to push to controller");
-        }
-      } else {
-        throw new Error("Device invalidation failed");
-      }
-    } catch (err: any) {
-      const errorMsg =
-        err.response?.data?.error ||
-        err.message ||
-        "Swap operation failed. Please try again.";
-      setSwapError(errorMsg);
-      setIsSwapping(false);
-    }
+    //     if (sendToControllerResponse.status === 200) {
+    //       setSwapSuccess(true);
+    //       window.alert(
+    //         "Success! The device has been successfully invalidated and pushed to the controllers.",
+    //       );
+    //       setTimeout(() => {
+    //         setSwapSuccess(false);
+    //         setShowPreconfigModal(false);
+    //         setSelectedDevice(null);
+    //         setTargetDevice(null);
+    //         setPreconfigText("");
+    //         setIsSwapping(false);
+    //         setSwapError(null);
+    //         setPendingSwap(false);
+    //       }, 1500);
+    //     } else {
+    //       throw new Error("Failed to push to controller");
+    //     }
+    //   } else {
+    //     throw new Error("Device invalidation failed");
+    //   }
+    // } catch (err: any) {
+    //   const errorMsg =
+    //     err.response?.data?.error ||
+    //     err.message ||
+    //     "Swap operation failed. Please try again.";
+    //   setSwapError(errorMsg);
+    //   setIsSwapping(false);
+    // }
   };
+
+  useEffect(() => {
+    if (pendingSwap && vmanageCreds) {
+      setPendingSwap(false);
+      handleSwapNow();
+    }
+  }, [vmanageCreds, pendingSwap]);
+
+  useEffect(() => {
+    if (needsLoginBeforeSwap && vmanageCreds) {
+      setNeedsLoginBeforeSwap(false);
+      setShowSwapModal(true);
+    }
+  }, [vmanageCreds, needsLoginBeforeSwap]);
 
   useEffect(() => {
     if (!donutRef.current) return;
@@ -680,6 +710,15 @@ function DeviceDashboard({
     fontSize: "10px",
     letterSpacing: "0.06em",
     color: "var(--theme-text-muted)",
+  };
+
+  const handleSwapButtonClick = () => {
+    if (!vmanageCreds) {
+      setNeedsLoginBeforeSwap(true);
+      onRequestVManageLogin();
+    } else {
+      setShowSwapModal(true);
+    }
   };
 
   return (
@@ -1988,7 +2027,7 @@ function DeviceDashboard({
               </button>
               <button
                 className={styles.swapBtn}
-                onClick={() => setShowSwapModal(true)}
+                onClick={handleSwapButtonClick}
               >
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
                   <path
@@ -2127,44 +2166,98 @@ function DeviceDashboard({
 
 function AuthErrorModal({ message }: { message: string }) {
   return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 9999,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      background: "rgba(0,0,0,0.4)", backdropFilter: "blur(8px)",
-      animation: "authFadeIn 0.3s ease"
-    }}>
-      <div style={{
-        background: "var(--theme-bg-card, #fff)",
-        padding: "32px", borderRadius: "24px",
-        boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-        maxWidth: "400px", width: "90%", textAlign: "center",
-        border: "1px solid var(--theme-accent-red, #E24B4A)"
-      }}>
-        <div style={{
-          width: "64px", height: "64px", borderRadius: "50%",
-          background: "rgba(226,75,74,0.1)", color: "var(--theme-accent-red, #E24B4A)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          margin: "0 auto 20px", fontSize: "28px"
-        }}>
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(0,0,0,0.4)",
+        backdropFilter: "blur(8px)",
+        animation: "authFadeIn 0.3s ease",
+      }}
+    >
+      <div
+        style={{
+          background: "var(--theme-bg-card, #fff)",
+          padding: "32px",
+          borderRadius: "24px",
+          boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+          maxWidth: "400px",
+          width: "90%",
+          textAlign: "center",
+          border: "1px solid var(--theme-accent-red, #E24B4A)",
+        }}
+      >
+        <div
+          style={{
+            width: "64px",
+            height: "64px",
+            borderRadius: "50%",
+            background: "rgba(226,75,74,0.1)",
+            color: "var(--theme-accent-red, #E24B4A)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 20px",
+            fontSize: "28px",
+          }}
+        >
+          <svg
+            width="32"
+            height="32"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
             <line x1="12" y1="9" x2="12" y2="13"></line>
             <line x1="12" y1="17" x2="12.01" y2="17"></line>
           </svg>
         </div>
-        <h2 style={{ margin: "0 0 12px", color: "var(--theme-text-primary, #000)", fontSize: "20px", fontFamily: "'Syne', sans-serif" }}>
+        <h2
+          style={{
+            margin: "0 0 12px",
+            color: "var(--theme-text-primary, #000)",
+            fontSize: "20px",
+            fontFamily: "'Syne', sans-serif",
+          }}
+        >
           Access Denied
         </h2>
-        <p style={{ margin: 0, color: "var(--theme-text-secondary, #666)", fontSize: "14px", lineHeight: "1.5" }}>
+        <p
+          style={{
+            margin: 0,
+            color: "var(--theme-text-secondary, #666)",
+            fontSize: "14px",
+            lineHeight: "1.5",
+          }}
+        >
           {message}
         </p>
-        <div style={{
-          marginTop: "24px", width: "100%", height: "4px", background: "rgba(226,75,74,0.1)", borderRadius: "4px", overflow: "hidden"
-        }}>
-          <div style={{
-            width: "100%", height: "100%", background: "var(--theme-accent-red, #E24B4A)",
-            animation: "authShrink 3s linear forwards"
-          }} />
+        <div
+          style={{
+            marginTop: "24px",
+            width: "100%",
+            height: "4px",
+            background: "rgba(226,75,74,0.1)",
+            borderRadius: "4px",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              background: "var(--theme-accent-red, #E24B4A)",
+              animation: "authShrink 3s linear forwards",
+            }}
+          />
         </div>
       </div>
       <style>{`
@@ -2194,54 +2287,73 @@ function DashboardContent() {
   useEffect(() => {
     if (!encryptedEmail) {
       setAuthError("No authentication token provided. Redirecting to login...");
-      setTimeout(() => router.push('/'), 3000);
+      setTimeout(() => router.push("/"), 3000);
       return;
     }
 
-    decrypt(encryptedEmail).then(async (dec) => {
-      if (!dec) {
-        setAuthError("Invalid encryption token. Redirecting to login...");
-        setTimeout(() => router.push('/'), 3000);
-        return;
-      }
-
-      try {
-        const response = await axios.post(`${process.env.NEXT_PUBLIC_URL}/api/POST/getlogin`, {
-          email: dec
-        });
-
-        if (response.status === 200 && response.data && response.data.length > 0) {
-          const data = response.data[0];
-          
-          if (data.staff_email !== dec) {
-            setAuthError("Email mismatch. Redirecting to login...");
-            setTimeout(() => router.push('/'), 3000);
-            return;
-          }
-
-          const userRole = (data.role || data.roles || data.staff_role || data["staff dept"] || "").toLowerCase();
-          if (userRole === "suspend" || userRole === "suspended") {
-            setAuthError("Your account has been suspended. Please contact support.");
-            setTimeout(() => router.push('/'), 3000);
-            return;
-          }
-
-          setEmail(dec);
-          console.log("Decrypted email:", dec);
-        } else {
-          setAuthError("User not found or invalid credentials. Redirecting to login...");
-          setTimeout(() => router.push('/'), 3000);
+    decrypt(encryptedEmail)
+      .then(async (dec) => {
+        if (!dec) {
+          setAuthError("Invalid encryption token. Redirecting to login...");
+          setTimeout(() => router.push("/"), 3000);
+          return;
         }
-      } catch (error) {
+
+        try {
+          const response = await axios.post(
+            `${process.env.NEXT_PUBLIC_URL}/api/POST/getlogin`,
+            {
+              email: dec,
+            },
+          );
+
+          if (
+            response.status === 200 &&
+            response.data &&
+            response.data.length > 0
+          ) {
+            const data = response.data[0];
+
+            if (data.staff_email !== dec) {
+              setAuthError("Email mismatch. Redirecting to login...");
+              setTimeout(() => router.push("/"), 3000);
+              return;
+            }
+
+            const userRole = (
+              data.role ||
+              data.roles ||
+              data.staff_role ||
+              data["staff dept"] ||
+              ""
+            ).toLowerCase();
+            if (userRole === "suspend" || userRole === "suspended") {
+              setAuthError(
+                "Your account has been suspended. Please contact support.",
+              );
+              setTimeout(() => router.push("/"), 3000);
+              return;
+            }
+
+            setEmail(dec);
+            console.log("Decrypted email:", dec);
+          } else {
+            setAuthError(
+              "User not found or invalid credentials. Redirecting to login...",
+            );
+            setTimeout(() => router.push("/"), 3000);
+          }
+        } catch (error) {
+          console.error(error);
+          setAuthError("Failed to authenticate user. Redirecting to login...");
+          setTimeout(() => router.push("/"), 3000);
+        }
+      })
+      .catch((error) => {
         console.error(error);
-        setAuthError("Failed to authenticate user. Redirecting to login...");
-        setTimeout(() => router.push('/'), 3000);
-      }
-    }).catch((error) => {
-      console.error(error);
-      setAuthError("Authentication error. Redirecting to login...");
-      setTimeout(() => router.push('/'), 3000);
-    });
+        setAuthError("Authentication error. Redirecting to login...");
+        setTimeout(() => router.push("/"), 3000);
+      });
   }, [encryptedEmail, router]);
   const [vmanageCreds, setVmanageCreds] = useState<VManageCreds | null>(null);
 
@@ -2275,8 +2387,14 @@ function DashboardContent() {
   const loadDevicesFromDB = async (showLoading = false) => {
     try {
       if (showLoading) setIsLoadingDB(true);
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_URL}/api/GET/alldevices`);
-      if (res.status === 200 && Array.isArray(res.data) && res.data.length > 0) {
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_URL}/api/GET/alldevices`,
+      );
+      if (
+        res.status === 200 &&
+        Array.isArray(res.data) &&
+        res.data.length > 0
+      ) {
         const mapped: Device[] = res.data.map((row: any) => ({
           hostname: row.hostname,
           serial: row.serial ?? null,
@@ -2362,14 +2480,20 @@ function DashboardContent() {
 
         let dbRes: any[] = [];
         try {
-          const dbResponse = await axios.get(`${process.env.NEXT_PUBLIC_URL}/api/GET/alldevices`);
+          const dbResponse = await axios.get(
+            `${process.env.NEXT_PUBLIC_URL}/api/GET/alldevices`,
+          );
           if (dbResponse.status === 200 && Array.isArray(dbResponse.data)) {
             dbRes = dbResponse.data;
           }
         } catch (_) {}
 
-        const dbSerials = new Set(dbRes.map((r: any) => r.serial).filter(Boolean));
-        const dbHostnames = new Set(dbRes.map((r: any) => r.hostname).filter(Boolean));
+        const dbSerials = new Set(
+          dbRes.map((r: any) => r.serial).filter(Boolean),
+        );
+        const dbHostnames = new Set(
+          dbRes.map((r: any) => r.hostname).filter(Boolean),
+        );
 
         const newDevices: Device[] = [];
 
@@ -2462,6 +2586,10 @@ function DashboardContent() {
     setShowModal(true);
   };
 
+  const handleRequestVManageLogin = () => {
+    setShowModal(true);
+  };
+
   return (
     <div
       className="flex min-h-screen"
@@ -2474,8 +2602,6 @@ function DashboardContent() {
         src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"
         onLoad={() => setChartReady(true)}
       />
-
-      <ThemeToggle isDark={isDark} onToggle={() => setIsDark(!isDark)} />
 
       {authError && <AuthErrorModal message={authError} />}
 
@@ -2505,6 +2631,7 @@ function DashboardContent() {
             isDark={isDark}
             vmanageCreds={vmanageCreds}
             onRefresh={() => setShowModal(true)}
+            onRequestVManageLogin={handleRequestVManageLogin}
           />
         ) : connectionError ? (
           <ConnectionErrorBanner onReconnect={handleReconnect} />
@@ -2519,7 +2646,9 @@ function DashboardContent() {
               gap: "20px",
             }}
           >
-            <div style={{ position: "relative", width: "72px", height: "72px" }}>
+            <div
+              style={{ position: "relative", width: "72px", height: "72px" }}
+            >
               <div
                 style={{
                   position: "absolute",
@@ -2693,7 +2822,21 @@ function DashboardContent() {
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--theme-text-primary)' }}>Loading dashboard...</div>}>
+    <Suspense
+      fallback={
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            height: "100vh",
+            color: "var(--theme-text-primary)",
+          }}
+        >
+          Loading dashboard...
+        </div>
+      }
+    >
       <DashboardContent />
     </Suspense>
   );
