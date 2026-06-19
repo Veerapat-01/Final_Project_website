@@ -6,24 +6,29 @@ const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 export async function POST(request) {
   try {
-    const { chassisNumber, ip, username, password, deviceSystemIp } =
-      await request.json();
+    const body = await request.json();
+    const { uuid, ip, username, password } = body;
 
-    if (!chassisNumber || !ip || !username || !password) {
+    const missing = [];
+    if (!uuid) missing.push("uuid");
+    if (!ip) missing.push("ip");
+    if (!username) missing.push("username");
+    if (!password) missing.push("password");
+
+    if (missing.length > 0) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: `Missing required fields: ${missing.join(", ")}` },
         { status: 400 },
       );
     }
 
     const authResponse = await axios.post(
       `https://${ip}/j_security_check`,
-      `j_username=${username}&j_password=${password}`,
+      `j_username=${encodeURIComponent(username)}&j_password=${encodeURIComponent(password)}`,
       {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
         httpsAgent,
+        validateStatus: () => true,
       },
     );
 
@@ -34,80 +39,119 @@ export async function POST(request) {
     if (!sessionCookie) {
       return NextResponse.json(
         { error: "Authentication failed" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
     const tokenResponse = await axios.get(
       `https://${ip}/dataservice/client/token`,
-      { headers: { Cookie: sessionCookie }, httpsAgent }
+      {
+        headers: { Cookie: sessionCookie },
+        httpsAgent,
+        validateStatus: () => true,
+      },
     );
+
+    if (tokenResponse.status !== 200) {
+      return NextResponse.json(
+        { error: "Failed to get XSRF token" },
+        { status: 500 },
+      );
+    }
 
     const xsrfToken = tokenResponse.data;
 
-    const invalidateResponse = await axios.delete(
-      `https://${ip}/dataservice/certificate/${chassisNumber}?deviceId=${deviceSystemIp}`,
+    const vedgeListResponse = await axios.get(
+      `https://${ip}/dataservice/certificate/vedge/list`,
       {
         headers: {
           Cookie: sessionCookie,
           "X-XSRF-TOKEN": xsrfToken,
-          "Accept": "application/json",
+          Accept: "application/json",
         },
         httpsAgent,
+        validateStatus: () => true,
       },
     );
 
-    let finalData = invalidateResponse.data;
+    if (vedgeListResponse.status !== 200) {
+      return NextResponse.json(
+        { error: "Failed to retrieve vedge list" },
+        { status: 500 },
+      );
+    }
 
-    // Check if vManage returned a task ID (asynchronous operation)
-    if (invalidateResponse.data && invalidateResponse.data.id) {
-      const taskId = invalidateResponse.data.id;
-      let taskStatus = "in_progress";
-      
-      // Poll the task status up to 30 times (60 seconds)
-      for (let i = 0; i < 30; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        
-        try {
-          const statusResponse = await axios.get(
-            `https://${ip}/dataservice/device/action/status/${taskId}`,
-            {
-              headers: { Cookie: sessionCookie },
-              httpsAgent,
-            }
-          );
-          
-          if (statusResponse.data && statusResponse.data.summary) {
-            taskStatus = statusResponse.data.summary.status;
-            finalData = statusResponse.data;
-            
-            if (taskStatus === "done" || taskStatus === "success") {
-              break;
-            } else if (taskStatus === "failure" || taskStatus === "failed") {
-              throw new Error(`vManage task failed: ${JSON.stringify(statusResponse.data)}`);
-            }
-          }
-        } catch (err) {
-          // If polling fails or task throws, we propagate the error
-          throw err;
-        }
-      }
+    const vedgeList = vedgeListResponse.data?.data ?? [];
+
+    const matched = vedgeList.find(
+      (d) =>
+        d.chasisNumber === uuid ||
+        d.uuid === uuid ||
+        d.serialNumber === uuid,
+    );
+
+    if (!matched) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Device not found in vedge list for chassis: ${uuid}`,
+        },
+        { status: 404 },
+      );
+    }
+
+    console.log("[invalidatedevice] found device:", matched.chasisNumber, "serial:", matched.serialNumber);
+
+    const savePayload = [
+      {
+        chasisNumber: matched.chasisNumber,
+        serialNumber: matched.serialNumber,
+        validity: "invalid",
+      },
+    ];
+
+    console.log("[invalidatedevice] POST /certificate/save/vedge/list payload:", JSON.stringify(savePayload));
+
+    const saveResponse = await axios.post(
+      `https://${ip}/dataservice/certificate/save/vedge/list`,
+      savePayload,
+      {
+        headers: {
+          Cookie: sessionCookie,
+          "X-XSRF-TOKEN": xsrfToken,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        httpsAgent,
+        validateStatus: () => true,
+      },
+    );
+
+    console.log("[invalidatedevice] save status:", saveResponse.status);
+    console.log("[invalidatedevice] save response:", JSON.stringify(saveResponse.data));
+
+    if (saveResponse.status === 200 || saveResponse.status === 202) {
+      return NextResponse.json(
+        {
+          success: true,
+          message: "Device invalidated successfully",
+          data: saveResponse.data,
+        },
+        { status: 200 },
+      );
     }
 
     return NextResponse.json(
       {
-        status: "success",
-        message: "Device invalidated successfully",
-        data: finalData,
+        success: false,
+        error: "Device invalidation failed",
+        vmanageStatus: saveResponse.status,
+        data: saveResponse.data,
       },
-      { status: 200 }
+      { status: 400 },
     );
   } catch (error) {
-    console.error("Invalidate device error:", error?.response?.data ?? error.message);
-    const detailMsg = error?.response?.data?.error?.message || error?.response?.data || error.message;
-    return NextResponse.json(
-      { error: `Failed to invalidate device: ${JSON.stringify(detailMsg)}` },
-      { status: 500 },
-    );
+    console.log("[invalidatedevice] error:", error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

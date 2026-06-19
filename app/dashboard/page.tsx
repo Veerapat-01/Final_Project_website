@@ -552,61 +552,65 @@ function DeviceDashboard({
     console.log(`old:${selectedDevice.serial}`);
     console.log(`new:${targetDevice.hostname}`);
     console.log(`new:${targetDevice.serial}`);
-    // try {
-    //   if (!selectedDevice.serial) {
-    //     throw new Error("Selected device has no serial number");
-    //   }
+    try {
+      if (!selectedDevice.serial) {
+        throw new Error("Selected device has no serial number");
+      }
 
-    //   const invalidateResponse = await axios.post(
-    //     `${process.env.NEXT_PUBLIC_URL}/api/POST/invalidatedevice`,
-    //     {
-    //       chassisNumber: targetDevice.serial,
-    //       deviceSystemIp: targetDevice.systemIp,
-    //       ip: vmanageCreds.ip,
-    //       username: vmanageCreds.username,
-    //       password: vmanageCreds.password,
-    //     },
-    //   );
+      const invalidateResponse = await axios.post(
+        `${process.env.NEXT_PUBLIC_URL}/api/POST/invalidatedevice`,
+        {
+          uuid: targetDevice.serial,
+          ip: vmanageCreds.ip,
+          username: vmanageCreds.username,
+          password: vmanageCreds.password,
+        },
+      );
+      if (invalidateResponse.data.success) {
+        alert("Invalid Success");
+      } else {
+        alert("Invalid Unsuccess");
+      }
 
-    //   if (invalidateResponse.status === 200) {
-    //     const sendToControllerResponse = await axios.post(
-    //       `${process.env.NEXT_PUBLIC_URL}/api/POST/sendtocontroller`,
-    //       {
-    //         ip: vmanageCreds.ip,
-    //         username: vmanageCreds.username,
-    //         password: vmanageCreds.password,
-    //       },
-    //     );
+      // if (invalidateResponse.status === 200) {
+      //   const sendToControllerResponse = await axios.post(
+      //     `${process.env.NEXT_PUBLIC_URL}/api/POST/sendtocontroller`,
+      //     {
+      //       ip: vmanageCreds.ip,
+      //       username: vmanageCreds.username,
+      //       password: vmanageCreds.password,
+      //     },
+      //   );
 
-    //     if (sendToControllerResponse.status === 200) {
-    //       setSwapSuccess(true);
-    //       window.alert(
-    //         "Success! The device has been successfully invalidated and pushed to the controllers.",
-    //       );
-    //       setTimeout(() => {
-    //         setSwapSuccess(false);
-    //         setShowPreconfigModal(false);
-    //         setSelectedDevice(null);
-    //         setTargetDevice(null);
-    //         setPreconfigText("");
-    //         setIsSwapping(false);
-    //         setSwapError(null);
-    //         setPendingSwap(false);
-    //       }, 1500);
-    //     } else {
-    //       throw new Error("Failed to push to controller");
-    //     }
-    //   } else {
-    //     throw new Error("Device invalidation failed");
-    //   }
-    // } catch (err: any) {
-    //   const errorMsg =
-    //     err.response?.data?.error ||
-    //     err.message ||
-    //     "Swap operation failed. Please try again.";
-    //   setSwapError(errorMsg);
-    //   setIsSwapping(false);
-    // }
+      //   if (sendToControllerResponse.status === 200) {
+      //     setSwapSuccess(true);
+      //     window.alert(
+      //       "Success! The device has been successfully invalidated and pushed to the controllers.",
+      //     );
+      //     setTimeout(() => {
+      //       setSwapSuccess(false);
+      //       setShowPreconfigModal(false);
+      //       setSelectedDevice(null);
+      //       setTargetDevice(null);
+      //       setPreconfigText("");
+      //       setIsSwapping(false);
+      //       setSwapError(null);
+      //       setPendingSwap(false);
+      //     }, 1500);
+      //   } else {
+      //     throw new Error("Failed to push to controller");
+      //   }
+      // } else {
+      //   throw new Error("Device invalidation failed");
+      // }
+    } catch (err: any) {
+      const errorMsg =
+        err.response?.data?.error ||
+        err.message ||
+        "Swap operation failed. Please try again.";
+      setSwapError(errorMsg);
+      setIsSwapping(false);
+    }
   };
 
   useEffect(() => {
