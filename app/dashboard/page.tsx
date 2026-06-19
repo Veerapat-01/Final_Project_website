@@ -2477,6 +2477,9 @@ function DashboardContent() {
         const uuid = allDevices.map(
           (device: { uuid: string }) => device["uuid"],
         );
+        const validity = allDevices.map(
+          (device: { validity: string }) => device["validity"],
+        );
 
         let dbRes: any[] = [];
         try {
@@ -2554,6 +2557,7 @@ function DashboardContent() {
                   deviceType: deviceTypes[i],
                   reachable: reachability[i],
                   serial: uuid[i],
+                  validity: validity[i],
                 },
               );
             } catch (_) {}

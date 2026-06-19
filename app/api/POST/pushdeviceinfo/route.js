@@ -11,6 +11,7 @@ export async function POST(request) {
       deviceType,
       reachable,
       serial,
+      validity,
     } = await request.json();
 
     const t = (deviceType ?? "").toLowerCase();
@@ -26,8 +27,8 @@ export async function POST(request) {
     }
 
     await pool.execute(
-      `INSERT INTO device_lists (hostname, systemip, siteid, g_01, g_02, eth_0, reachable, roles, serial)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO device_lists (hostname, systemip, siteid, g_01, g_02, eth_0, reachable, roles, serial, validity)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          systemip = VALUES(systemip),
          siteid = VALUES(siteid),
@@ -36,7 +37,8 @@ export async function POST(request) {
          eth_0 = VALUES(eth_0),
          reachable = VALUES(reachable),
          roles = VALUES(roles),
-         serial = VALUES(serial)`,
+         serial = VALUES(serial),
+         validity = VALUES(validity)`,
       [
         hostname,
         systemip,
@@ -47,6 +49,7 @@ export async function POST(request) {
         reachable,
         deviceType,
         serial,
+        validity,
       ],
     );
 
