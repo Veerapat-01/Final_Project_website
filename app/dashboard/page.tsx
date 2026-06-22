@@ -370,12 +370,14 @@ function DeviceDashboard({
   vmanageCreds,
   onRefresh,
   onRequestVManageLogin,
+  isRefreshing,
 }: {
   devices: Device[];
   isDark: boolean;
   vmanageCreds: VManageCreds | null;
   onRefresh: () => void;
   onRequestVManageLogin: () => void;
+  isRefreshing?: boolean;
 }) {
   const donutRef = useRef<HTMLCanvasElement>(null);
   const chartInstanceRef = useRef<any>(null);
@@ -2010,9 +2012,25 @@ function DeviceDashboard({
               <button
                 className={styles.swapBtn}
                 onClick={onRefresh}
-                style={{ marginRight: "4px" }}
+                disabled={isRefreshing}
+                style={{
+                  marginRight: "4px",
+                  opacity: isRefreshing ? 0.7 : 1,
+                  cursor: isRefreshing ? "not-allowed" : "pointer",
+                }}
               >
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  style={{
+                    animation: isRefreshing
+                      ? "spin 0.8s linear infinite"
+                      : "none",
+                    display: "inline-block",
+                  }}
+                >
                   <path
                     d="M14 8A6 6 0 112 8"
                     stroke="currentColor"
@@ -2027,7 +2045,7 @@ function DeviceDashboard({
                     strokeLinejoin="round"
                   />
                 </svg>
-                Refresh
+                {isRefreshing ? "Refreshing..." : "Refresh"}
               </button>
               <button
                 className={styles.swapBtn}
@@ -2485,23 +2503,6 @@ function DashboardContent() {
           (device: { validity: string }) => device["validity"],
         );
 
-        let dbRes: any[] = [];
-        try {
-          const dbResponse = await axios.get(
-            `${process.env.NEXT_PUBLIC_URL}/api/GET/alldevices`,
-          );
-          if (dbResponse.status === 200 && Array.isArray(dbResponse.data)) {
-            dbRes = dbResponse.data;
-          }
-        } catch (_) {}
-
-        const dbSerials = new Set(
-          dbRes.map((r: any) => r.serial).filter(Boolean),
-        );
-        const dbHostnames = new Set(
-          dbRes.map((r: any) => r.hostname).filter(Boolean),
-        );
-
         const newDevices: Device[] = [];
 
         for (let i = 0; i < deviceIds.length; i++) {
@@ -2543,29 +2544,25 @@ function DashboardContent() {
             eth0Ip = eth0Iface?.["ip-address"] ?? null;
           } catch (_) {}
 
-          const alreadyInDB =
-            (uuid[i] && dbSerials.has(uuid[i])) ||
-            (!uuid[i] && dbHostnames.has(hostnames[i]));
-
-          if (!alreadyInDB) {
-            try {
-              await axios.post(
-                `${process.env.NEXT_PUBLIC_URL}/api/POST/pushdeviceinfo`,
-                {
-                  hostname: hostnames[i],
-                  systemip: systemip[i],
-                  siteid: siteIds[i],
-                  eth0: eth0Ip,
-                  ipad1: ge01Ip,
-                  ipad2: ge02Ip,
-                  deviceType: deviceTypes[i],
-                  reachable: reachability[i],
-                  serial: uuid[i],
-                  validity: validity[i],
-                },
-              );
-            } catch (_) {}
-          }
+          // Always upsert to DB — ON DUPLICATE KEY UPDATE handles existing rows,
+          // ensuring serial, reachability, IPs etc. are always up-to-date.
+          try {
+            await axios.post(
+              `${process.env.NEXT_PUBLIC_URL}/api/POST/pushdeviceinfo`,
+              {
+                hostname: hostnames[i],
+                systemip: systemip[i],
+                siteid: siteIds[i],
+                eth0: eth0Ip,
+                ipad1: ge01Ip,
+                ipad2: ge02Ip,
+                deviceType: deviceTypes[i],
+                reachable: reachability[i],
+                serial: uuid[i],
+                validity: validity[i],
+              },
+            );
+          } catch (_) {}
 
           newDevices.push({
             hostname: hostnames[i],
@@ -2596,6 +2593,157 @@ function DashboardContent() {
 
   const handleRequestVManageLogin = () => {
     setShowModal(true);
+  };
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (!vmanageCreds) {
+      setShowModal(true);
+      return;
+    }
+    setIsRefreshing(true);
+    try {
+      const authenResponse = await axios.post(
+        `${process.env.NEXT_PUBLIC_URL}/api/POST/authenVmanage`,
+        {
+          ip: vmanageCreds.ip,
+          username: vmanageCreds.username,
+          password: vmanageCreds.password,
+        },
+      );
+
+      const deviceResponse = await axios.post(
+        `${process.env.NEXT_PUBLIC_URL}/api/POST/deviceVmanage`,
+        { ip: vmanageCreds.ip, cookie: authenResponse.data.cookie },
+      );
+
+      if (deviceResponse.status !== 200) return;
+
+      const allDevices = deviceResponse.data.data.data;
+      const deviceIds = allDevices.map(
+        (device: { deviceId: any }) => device.deviceId,
+      );
+      const systemip = allDevices.map(
+        (device: { ["system-ip"]: string }) => device["system-ip"],
+      );
+      const hostnames = allDevices.map(
+        (device: { ["host-name"]: string }) => device["host-name"],
+      );
+      const siteIds = allDevices.map(
+        (device: { ["site-id"]: string }) => device["site-id"],
+      );
+      const reachability = allDevices.map(
+        (device: { reachability: any }) => device.reachability,
+      );
+      const status = allDevices.map(
+        (device: { status: any }) => device.status,
+      );
+      const deviceTypes = allDevices.map(
+        (device: { "device-type": string }) => device["device-type"],
+      );
+      const uuid = allDevices.map(
+        (device: { uuid: string }) => device["uuid"],
+      );
+      const validity = allDevices.map(
+        (device: { validity: string }) => device["validity"],
+      );
+
+      const newDevices: Device[] = [];
+
+      for (let i = 0; i < deviceIds.length; i++) {
+        const isReachable = reachability[i] === "reachable";
+
+        let ge01Ip: string | null = null;
+        let ge02Ip: string | null = null;
+        let eth0Ip: string | null = null;
+
+        if (isReachable) {
+          // Device is reachable — fetch latest interface IPs from vManage
+          try {
+            const responseInterfaces = await axios.post(
+              `${process.env.NEXT_PUBLIC_URL}/api/POST/getInterfaces`,
+              {
+                ip: vmanageCreds.ip,
+                deviceId: deviceIds[i],
+                cookie: authenResponse.data.cookie,
+              },
+            );
+
+            const interfaces = responseInterfaces.data.data.data;
+            const { if1, if2 } = resolveIfnames(deviceTypes[i]);
+
+            const iface1 =
+              interfaces.find(
+                (int: any) => int["af-type"] === "ipv4" && int.ifname === if1,
+              ) ?? null;
+
+            const iface2 =
+              interfaces.find(
+                (int: any) => int["af-type"] === "ipv4" && int.ifname === if2,
+              ) ?? null;
+
+            const eth0Iface =
+              interfaces.find(
+                (int: any) =>
+                  int["af-type"] === "ipv4" && int.ifname === "eth0",
+              ) ?? null;
+
+            ge01Ip = iface1?.["ip-address"] ?? null;
+            ge02Ip = iface2?.["ip-address"] ?? null;
+            eth0Ip = eth0Iface?.["ip-address"] ?? null;
+          } catch (_) {}
+        } else {
+          // Device is unreachable — keep existing IPs from current state, only reachability changes
+          const existing = devices.find(
+            (d) => d.serial === uuid[i] || d.hostname === hostnames[i],
+          );
+          ge01Ip = existing?.ge01 ?? null;
+          ge02Ip = existing?.ge02 ?? null;
+          eth0Ip = existing?.eth0 ?? null;
+        }
+
+        // Update DB — for unreachable devices only reachability is effectively changed
+        // (IPs sent are the existing values, so ON DUPLICATE KEY UPDATE keeps them intact)
+        try {
+          await axios.post(
+            `${process.env.NEXT_PUBLIC_URL}/api/POST/pushdeviceinfo`,
+            {
+              hostname: hostnames[i],
+              systemip: systemip[i],
+              siteid: siteIds[i],
+              eth0: eth0Ip,
+              ipad1: ge01Ip,
+              ipad2: ge02Ip,
+              deviceType: deviceTypes[i],
+              reachable: reachability[i],
+              serial: uuid[i],
+              validity: validity[i],
+            },
+          );
+        } catch (_) {}
+
+        newDevices.push({
+          hostname: hostnames[i],
+          serial: uuid[i],
+          systemIp: systemip[i],
+          siteId: siteIds[i],
+          type: deviceTypes[i],
+          eth0: eth0Ip,
+          ge01: ge01Ip,
+          ge02: ge02Ip,
+          reachable: reachability[i],
+          status: status[i],
+        });
+      }
+
+      setDevices(newDevices);
+    } catch (_) {
+      // silently fail — creds may have expired; open modal to re-auth
+      setShowModal(true);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   return (
@@ -2638,8 +2786,9 @@ function DashboardContent() {
             devices={devices}
             isDark={isDark}
             vmanageCreds={vmanageCreds}
-            onRefresh={() => setShowModal(true)}
+            onRefresh={handleRefresh}
             onRequestVManageLogin={handleRequestVManageLogin}
+            isRefreshing={isRefreshing}
           />
         ) : connectionError ? (
           <ConnectionErrorBanner onReconnect={handleReconnect} />
