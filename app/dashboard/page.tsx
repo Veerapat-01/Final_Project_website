@@ -2510,39 +2510,52 @@ function DashboardContent() {
           let ge02Ip: string | null = null;
           let eth0Ip: string | null = null;
 
-          try {
-            const responseInterfaces = await axios.post(
-              `${process.env.NEXT_PUBLIC_URL}/api/POST/getInterfaces`,
-              {
-                ip: credentials.ip,
-                deviceId: deviceIds[i],
-                cookie: authenResponse.data.cookie,
-              },
+          const isReachable = reachability[i] === "reachable";
+
+          if (isReachable) {
+            // Device is reachable — fetch latest interface IPs from vManage
+            try {
+              const responseInterfaces = await axios.post(
+                `${process.env.NEXT_PUBLIC_URL}/api/POST/getInterfaces`,
+                {
+                  ip: credentials.ip,
+                  deviceId: deviceIds[i],
+                  cookie: authenResponse.data.cookie,
+                },
+              );
+
+              const interfaces = responseInterfaces.data.data.data;
+              const { if1, if2 } = resolveIfnames(deviceTypes[i]);
+
+              const iface1 =
+                interfaces.find(
+                  (int: any) => int["af-type"] === "ipv4" && int.ifname === if1,
+                ) ?? null;
+
+              const iface2 =
+                interfaces.find(
+                  (int: any) => int["af-type"] === "ipv4" && int.ifname === if2,
+                ) ?? null;
+
+              const eth0Iface =
+                interfaces.find(
+                  (int: any) =>
+                    int["af-type"] === "ipv4" && int.ifname === "eth0",
+                ) ?? null;
+
+              ge01Ip = iface1?.["ip-address"] ?? null;
+              ge02Ip = iface2?.["ip-address"] ?? null;
+              eth0Ip = eth0Iface?.["ip-address"] ?? null;
+            } catch (_) {}
+          } else {
+            // Device is unreachable — keep existing IPs, only reachability changes
+            const existing = devices.find(
+              (d) => d.serial === uuid[i] || d.hostname === hostnames[i],
             );
-
-            const interfaces = responseInterfaces.data.data.data;
-            const { if1, if2 } = resolveIfnames(deviceTypes[i]);
-
-            const iface1 =
-              interfaces.find(
-                (int: any) => int["af-type"] === "ipv4" && int.ifname === if1,
-              ) ?? null;
-
-            const iface2 =
-              interfaces.find(
-                (int: any) => int["af-type"] === "ipv4" && int.ifname === if2,
-              ) ?? null;
-
-            const eth0Iface =
-              interfaces.find(
-                (int: any) =>
-                  int["af-type"] === "ipv4" && int.ifname === "eth0",
-              ) ?? null;
-
-            ge01Ip = iface1?.["ip-address"] ?? null;
-            ge02Ip = iface2?.["ip-address"] ?? null;
-            eth0Ip = eth0Iface?.["ip-address"] ?? null;
-          } catch (_) {}
+            ge01Ip = existing?.ge01 ?? null;
+            ge02Ip = existing?.ge02 ?? null;
+            eth0Ip = existing?.eth0 ?? null;
+          }
 
           // Always upsert to DB — ON DUPLICATE KEY UPDATE handles existing rows,
           // ensuring serial, reachability, IPs etc. are always up-to-date.
