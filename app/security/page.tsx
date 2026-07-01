@@ -189,7 +189,7 @@ function SecurityContent() {
 
   useEffect(() => {
     axios
-      .get(`${process.env.NEXT_PUBLIC_URL}/api/GET/alllogin`)
+      .get(`${process.env.NEXT_PUBLIC_URL || ""}/api/GET/alllogin`)
       .then((res) => {
         const fetchedUsers = res.data.map((d: any) => {
           let role = d.roles || d.staff_dept || "Operator";
@@ -233,7 +233,7 @@ function SecurityContent() {
 
         try {
           const response = await axios.post(
-            `${process.env.NEXT_PUBLIC_URL}/api/POST/getlogin`,
+            `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/getlogin`,
             {
               email: dec,
             },
@@ -416,7 +416,7 @@ function SecurityContent() {
 
     try {
       if (editingUser) {
-        await axios.post(`${process.env.NEXT_PUBLIC_URL}/api/POST/updateuser`, {
+        await axios.post(`${process.env.NEXT_PUBLIC_URL || ""}/api/POST/updateuser`, {
           email: form.email,
           role: form.role,
         });
@@ -424,7 +424,7 @@ function SecurityContent() {
           prev.map((u) => (u.id === editingUser.id ? { ...u, ...form } : u)),
         );
       } else {
-        await axios.post(`${process.env.NEXT_PUBLIC_URL}/api/POST/adduser`, {
+        await axios.post(`${process.env.NEXT_PUBLIC_URL || ""}/api/POST/adduser`, {
           name: form.name.trim(),
           email: form.email.trim(),
           role: form.role,

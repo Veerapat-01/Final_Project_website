@@ -5,5 +5,4 @@ export const pool = mysql.createPool({
   password: process.env.NEXT_PUBLIC_DB_PASSWORD,
   database: process.env.NEXT_PUBLIC_DB_NAME,
   port: Number(process.env.NEXT_PUBLIC_DB_PORT),
-  ssl: { rejectUnauthorized: true }
 })

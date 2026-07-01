@@ -442,7 +442,7 @@ function DeviceDashboard({
   const handleConfirmWithDevice = async (d: Device) => {
     let temp = "";
     const response = await axios.post(
-      `${process.env.NEXT_PUBLIC_URL}/api/POST/getdevicebyhostname`,
+      `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/getdevicebyhostname`,
       {
         hostname: selectedDevice?.hostname,
       },
@@ -560,7 +560,7 @@ function DeviceDashboard({
       }
 
       const invalidateResponse = await axios.post(
-        `${process.env.NEXT_PUBLIC_URL}/api/POST/invalidatedevice`,
+        `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/invalidatedevice`,
         {
           uuid: targetDevice.serial,
           ip: vmanageCreds.ip,
@@ -568,43 +568,38 @@ function DeviceDashboard({
           password: vmanageCreds.password,
         },
       );
+
       if (invalidateResponse.data.success) {
-        alert("Invalid Success");
+        const sendToControllerResponse = await axios.post(
+          `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/sendtocontroller`,
+          {
+            ip: vmanageCreds.ip,
+            username: vmanageCreds.username,
+            password: vmanageCreds.password,
+          },
+        );
+
+        if (sendToControllerResponse.status === 200) {
+          setSwapSuccess(true);
+          window.alert(
+            "Success! The device has been successfully invalidated and pushed to the controllers.",
+          );
+          setTimeout(() => {
+            setSwapSuccess(false);
+            setShowPreconfigModal(false);
+            setSelectedDevice(null);
+            setTargetDevice(null);
+            setPreconfigText("");
+            setIsSwapping(false);
+            setSwapError(null);
+            setPendingSwap(false);
+          }, 1500);
+        } else {
+          throw new Error("Failed to push to controller");
+        }
       } else {
-        alert("Invalid Unsuccess");
+        throw new Error("Device invalidation failed");
       }
-
-      // if (invalidateResponse.status === 200) {
-      //   const sendToControllerResponse = await axios.post(
-      //     `${process.env.NEXT_PUBLIC_URL}/api/POST/sendtocontroller`,
-      //     {
-      //       ip: vmanageCreds.ip,
-      //       username: vmanageCreds.username,
-      //       password: vmanageCreds.password,
-      //     },
-      //   );
-
-      //   if (sendToControllerResponse.status === 200) {
-      //     setSwapSuccess(true);
-      //     window.alert(
-      //       "Success! The device has been successfully invalidated and pushed to the controllers.",
-      //     );
-      //     setTimeout(() => {
-      //       setSwapSuccess(false);
-      //       setShowPreconfigModal(false);
-      //       setSelectedDevice(null);
-      //       setTargetDevice(null);
-      //       setPreconfigText("");
-      //       setIsSwapping(false);
-      //       setSwapError(null);
-      //       setPendingSwap(false);
-      //     }, 1500);
-      //   } else {
-      //     throw new Error("Failed to push to controller");
-      //   }
-      // } else {
-      //   throw new Error("Device invalidation failed");
-      // }
     } catch (err: any) {
       const errorMsg =
         err.response?.data?.error ||
@@ -2323,7 +2318,7 @@ function DashboardContent() {
 
         try {
           const response = await axios.post(
-            `${process.env.NEXT_PUBLIC_URL}/api/POST/getlogin`,
+            `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/getlogin`,
             {
               email: dec,
             },
@@ -2410,7 +2405,7 @@ function DashboardContent() {
     try {
       if (showLoading) setIsLoadingDB(true);
       const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_URL}/api/GET/alldevices`,
+        `${process.env.NEXT_PUBLIC_URL || ""}/api/GET/alldevices`,
       );
       if (
         res.status === 200 &&
@@ -2453,7 +2448,7 @@ function DashboardContent() {
   }) => {
     try {
       const authenResponse = await axios.post(
-        `${process.env.NEXT_PUBLIC_URL}/api/POST/authenVmanage`,
+        `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/authenVmanage`,
         {
           ip: credentials.ip,
           username: credentials.username,
@@ -2462,7 +2457,7 @@ function DashboardContent() {
       );
 
       const deviceResponse = await axios.post(
-        `${process.env.NEXT_PUBLIC_URL}/api/POST/deviceVmanage`,
+        `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/deviceVmanage`,
         { ip: credentials.ip, cookie: authenResponse.data.cookie },
       );
 
@@ -2516,7 +2511,7 @@ function DashboardContent() {
             // Device is reachable — fetch latest interface IPs from vManage
             try {
               const responseInterfaces = await axios.post(
-                `${process.env.NEXT_PUBLIC_URL}/api/POST/getInterfaces`,
+                `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/getInterfaces`,
                 {
                   ip: credentials.ip,
                   deviceId: deviceIds[i],
@@ -2561,7 +2556,7 @@ function DashboardContent() {
           // ensuring serial, reachability, IPs etc. are always up-to-date.
           try {
             await axios.post(
-              `${process.env.NEXT_PUBLIC_URL}/api/POST/pushdeviceinfo`,
+              `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/pushdeviceinfo`,
               {
                 hostname: hostnames[i],
                 systemip: systemip[i],
@@ -2618,7 +2613,7 @@ function DashboardContent() {
     setIsRefreshing(true);
     try {
       const authenResponse = await axios.post(
-        `${process.env.NEXT_PUBLIC_URL}/api/POST/authenVmanage`,
+        `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/authenVmanage`,
         {
           ip: vmanageCreds.ip,
           username: vmanageCreds.username,
@@ -2627,7 +2622,7 @@ function DashboardContent() {
       );
 
       const deviceResponse = await axios.post(
-        `${process.env.NEXT_PUBLIC_URL}/api/POST/deviceVmanage`,
+        `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/deviceVmanage`,
         { ip: vmanageCreds.ip, cookie: authenResponse.data.cookie },
       );
 
@@ -2675,7 +2670,7 @@ function DashboardContent() {
           // Device is reachable — fetch latest interface IPs from vManage
           try {
             const responseInterfaces = await axios.post(
-              `${process.env.NEXT_PUBLIC_URL}/api/POST/getInterfaces`,
+              `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/getInterfaces`,
               {
                 ip: vmanageCreds.ip,
                 deviceId: deviceIds[i],
@@ -2720,7 +2715,7 @@ function DashboardContent() {
         // (IPs sent are the existing values, so ON DUPLICATE KEY UPDATE keeps them intact)
         try {
           await axios.post(
-            `${process.env.NEXT_PUBLIC_URL}/api/POST/pushdeviceinfo`,
+            `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/pushdeviceinfo`,
             {
               hostname: hostnames[i],
               systemip: systemip[i],
