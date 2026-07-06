@@ -397,6 +397,8 @@ function DeviceDashboard({
   const [isSwapping, setIsSwapping] = useState(false);
   const [swapSuccess, setSwapSuccess] = useState(false);
   const [swapError, setSwapError] = useState<string | null>(null);
+  const [swapWarning, setSwapWarning] = useState<string | null>(null);
+  const [swapStep, setSwapStep] = useState(1);
   const [manualSerial, setManualSerial] = useState("");
   const [manualSerialError, setManualSerialError] = useState("");
   const [isManualMode, setIsManualMode] = useState(false);
@@ -551,40 +553,90 @@ function DeviceDashboard({
 
     setIsSwapping(true);
     setSwapError(null);
-    console.log(`old:${selectedDevice.hostname}`);
-    console.log(`old:${selectedDevice.serial}`);
-    console.log(`new:${targetDevice.hostname}`);
-    console.log(`new:${targetDevice.serial}`);
+    setSwapWarning(null);
+
     try {
       if (!selectedDevice.serial) {
         throw new Error("Selected device has no serial number");
       }
 
-      const invalidateResponse = await axios.post(
-        `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/invalidatedevice`,
-        {
-          uuid: targetDevice.serial,
-          ip: vmanageCreds.ip,
-          username: vmanageCreds.username,
-          password: vmanageCreds.password,
-        },
-      );
+      if (swapStep === 1) {
+        // Step 1: invalid new and push to controller
+        const invalidateResponse = await axios.post(
+          `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/invalidatedevice`,
+          {
+            uuid: targetDevice.serial,
+            ip: vmanageCreds.ip,
+            username: vmanageCreds.username,
+            password: vmanageCreds.password,
+          }
+        );
 
-      if (invalidateResponse.data.success) {
+        if (!invalidateResponse.data.success) {
+          throw new Error("Failed to invalidate new device");
+        }
+
         const sendToControllerResponse = await axios.post(
           `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/sendtocontroller`,
           {
             ip: vmanageCreds.ip,
             username: vmanageCreds.username,
             password: vmanageCreds.password,
+          }
+        );
+
+        if (sendToControllerResponse.status !== 200) {
+          throw new Error("Failed to push to controller");
+        }
+
+        setIsSwapping(false);
+        setSwapStep(2);
+        return;
+      }
+
+      if (swapStep === 2) {
+        // Step 2: invalid old (warn if fail), valid new, and push to controller
+        const invalidateOldResponse = await axios.post(
+          `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/invalidatedevice`,
+          {
+            uuid: selectedDevice.serial,
+            ip: vmanageCreds.ip,
+            username: vmanageCreds.username,
+            password: vmanageCreds.password,
           },
+          { validateStatus: () => true }
+        );
+
+        if (invalidateOldResponse.status !== 200 && invalidateOldResponse.status !== 202) {
+          setSwapWarning("Warning: Could not invalidate old device. Proceeding to valid new device...");
+        }
+
+        const validateResponse = await axios.post(
+          `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/validatedevice`,
+          {
+            uuid: targetDevice.serial,
+            ip: vmanageCreds.ip,
+            username: vmanageCreds.username,
+            password: vmanageCreds.password,
+          }
+        );
+
+        if (!validateResponse.data.success) {
+          throw new Error("Target device validation failed");
+        }
+
+        const sendToControllerResponse = await axios.post(
+          `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/sendtocontroller`,
+          {
+            ip: vmanageCreds.ip,
+            username: vmanageCreds.username,
+            password: vmanageCreds.password,
+          }
         );
 
         if (sendToControllerResponse.status === 200) {
           setSwapSuccess(true);
-          window.alert(
-            "Success! The device has been successfully invalidated and pushed to the controllers.",
-          );
+          window.alert("Success! Changes pushed to controllers.");
           setTimeout(() => {
             setSwapSuccess(false);
             setShowSwapTargetModal(false);
@@ -594,13 +646,13 @@ function DeviceDashboard({
             setPreconfigText("");
             setIsSwapping(false);
             setSwapError(null);
+            setSwapWarning(null);
+            setSwapStep(1);
             setPendingSwap(false);
           }, 1500);
         } else {
           throw new Error("Failed to push to controller");
         }
-      } else {
-        throw new Error("Device invalidation failed");
       }
     } catch (err: any) {
       const errorMsg =
@@ -1550,6 +1602,12 @@ function DeviceDashboard({
                     {swapError}
                   </div>
                 )}
+
+                {swapWarning && (
+                  <div style={{ marginBottom: "16px", padding: "10px", borderRadius: "8px", background: "rgba(255,189,46,0.1)", border: "1px solid #FFBD2E", color: "#FFBD2E", fontSize: "12px" }}>
+                    {swapWarning}
+                  </div>
+                )}
                 
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
                   <button
@@ -1594,7 +1652,13 @@ function DeviceDashboard({
                       boxShadow: "0 0 14px var(--theme-accent-glow)",
                     }}
                   >
-                    {isSwapping ? "Proceeding..." : swapSuccess ? "Done!" : "invalid new device & push to controller (step1/3)"}
+                    {isSwapping
+                      ? "Proceeding..."
+                      : swapSuccess
+                        ? "Done!"
+                        : swapStep === 1
+                          ? "invalid new & push to controller (step 1/2)"
+                          : "valid new, invalid old & push to controller (step 2/2)"}
                   </button>
                 </div>
               </div>

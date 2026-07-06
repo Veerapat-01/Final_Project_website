@@ -88,59 +88,10 @@ export async function POST(request) {
       Accept: "application/json",
     };
 
-    // ── Step 3: Get vEdge list ────────────────────────────────────────────────
-    const vedgeListResponse = await axios.get(
-      `https://${ip}/dataservice/certificate/vedge/list`,
-      { headers, httpsAgent, validateStatus: () => true },
-    );
-
-    if (vedgeListResponse.status !== 200) {
-      return NextResponse.json(
-        { success: false, error: "Failed to get vEdge list" },
-        { status: 500 },
-      );
-    }
-
-    const vedgeList = vedgeListResponse.data?.data ?? [];
-
-    if (vedgeList.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "No devices found in vEdge list" },
-        { status: 404 },
-      );
-    }
-
-    // Build payload — same structure as Cisco doc example
-    const payload = vedgeList.map((d) => ({
-      chasisNumber: d.chasisNumber,
-      serialNumber: d.serialNumber,
-      validity: d.validity,
-      sendToControllers: true,
-    }));
-
-    // ── Step 4: Save vEdge list ───────────────────────────────────────────────
-    const saveResponse = await axios.post(
-      `https://${ip}/dataservice/certificate/vedge/list?action=save`,
-      payload,
-      { headers, httpsAgent, validateStatus: () => true },
-    );
-
-    if (saveResponse.status !== 200 && saveResponse.status !== 202) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to save vEdge list",
-          vmanageStatus: saveResponse.status,
-          detail: saveResponse.data,
-        },
-        { status: 500 },
-      );
-    }
-
-    // ── Step 5: Push to controllers ──────────────────────────────────────────
+    // ── Step 3: Push to controllers ──────────────────────────────────────────
     const pushResponse = await axios.post(
       `https://${ip}/dataservice/certificate/vedge/list?action=push`,
-      payload,
+      {},
       { headers, httpsAgent, validateStatus: () => true },
     );
 
@@ -159,7 +110,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: true,
-        message: `Pushed ${vedgeList.length} device(s) to controllers successfully`,
+        message: `Pushed changes to controllers successfully`,
         data: pushResponse.data,
       },
       { status: 200 },
