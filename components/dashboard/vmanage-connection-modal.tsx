@@ -52,7 +52,7 @@ export function VManageConnectionModal({ onConnect, onClose }: VManageConnection
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}
     >
       <div className="relative w-full max-w-sm mx-4 bg-card border border-border rounded-2xl shadow-2xl p-6 animate-in slide-in-from-bottom-4 zoom-in-95 duration-300">

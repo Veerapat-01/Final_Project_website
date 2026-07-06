@@ -439,85 +439,86 @@ function DeviceDashboard({
   const accentRed = isDark ? "#FF4455" : "#E24B4A";
   const accentLight = isDark ? "#00FFCC" : "#5DCAA5";
 
-  const handleConfirmWithDevice = async (d: Device) => {
+  const fetchConfig = async (hostname: string) => {
     let temp = "";
-    const response = await axios.post(
-      `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/getdevicebyhostname`,
-      {
-        hostname: selectedDevice?.hostname,
-      },
-    );
+    try {
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/getdevicebyhostname`,
+        { hostname },
+      );
 
-    if (response.status === 200) {
-      const getdevicedata = response.data[0];
+      if (response.status === 200) {
+        const getdevicedata = response.data[0];
 
-      if (
-        getdevicedata.roles === "vmanage" ||
-        getdevicedata.roles === "vsmart"
-      ) {
-        temp += "config\n";
-        temp += "system\n";
-        temp += `${getdevicedata.hostname}\n`;
-        temp += `system-ip ${getdevicedata.systemip}\n`;
-        temp += `site-id ${getdevicedata.siteid}\n`;
-        temp += `sp-organization-name "BAAC"\n`;
-        temp += `organization-name "BAAC"\n`;
-        temp += `vbond 172.26.155.17\n`;
-        temp += `! \n`;
-        temp += `vpn 0 \n`;
-        temp += `int eth0\n`;
-        temp += ` ip address ${getdevicedata.eth_0} \n`;
-        temp += `no shutdown \n`;
-      } else {
-        temp += "config\n";
-        temp += "system\n";
-        temp += `host-name ${getdevicedata.hostname}\n`;
-        temp += `system-ip ${getdevicedata.systemip}\n`;
-        temp += `site-id ${getdevicedata.siteid}\n`;
-        temp += `sp-organization-name "BAAC"\n`;
-        temp += `organization-name "BAAC"\n`;
-        temp += `vbond 172.26.155.17\n`;
-        temp += `! \n`;
-        temp += `vpn 0\n`;
-        temp += `dns 172.26.18.32 primary\n`;
-        temp += `dns 8.8.8.8 secondary\n`;
-        temp += `int ge0/1 \n`;
-        temp += `ip address ${getdevicedata.g_01}\n`;
-        temp += `no shutdown\n`;
-        temp += `tunnel encap ipsec\n`;
-        temp += `color private2\n`;
-        temp += `! \n`;
-        temp += `int ge0/2 \n`;
-        temp += `ip address ${getdevicedata.g_02} \n`;
-        temp += `no shutdown\n`;
-        temp += `tunnel encap ipsec\n`;
-        temp += `color private3\n`;
-        temp += `! \n`;
-        temp += `! \n`;
-        const ip1 = getdevicedata.g_01.split("/")[0];
-        const octet1 = ip1.split(".");
+        if (
+          getdevicedata.roles === "vmanage" ||
+          getdevicedata.roles === "vsmart"
+        ) {
+          temp += "config\n";
+          temp += "system\n";
+          temp += `${getdevicedata.hostname}\n`;
+          temp += `system-ip ${getdevicedata.systemip}\n`;
+          temp += `site-id ${getdevicedata.siteid}\n`;
+          temp += `sp-organization-name "BAAC"\n`;
+          temp += `organization-name "BAAC"\n`;
+          temp += `vbond 172.26.155.17\n`;
+          temp += `! \n`;
+          temp += `vpn 0 \n`;
+          temp += `int eth0\n`;
+          temp += ` ip address ${getdevicedata.eth_0} \n`;
+          temp += `no shutdown \n`;
+        } else {
+          temp += "config\n";
+          temp += "system\n";
+          temp += `host-name ${getdevicedata.hostname}\n`;
+          temp += `system-ip ${getdevicedata.systemip}\n`;
+          temp += `site-id ${getdevicedata.siteid}\n`;
+          temp += `sp-organization-name "BAAC"\n`;
+          temp += `organization-name "BAAC"\n`;
+          temp += `vbond 172.26.155.17\n`;
+          temp += `! \n`;
+          temp += `vpn 0\n`;
+          temp += `dns 172.26.18.32 primary\n`;
+          temp += `dns 8.8.8.8 secondary\n`;
+          temp += `int ge0/1 \n`;
+          temp += `ip address ${getdevicedata.g_01}\n`;
+          temp += `no shutdown\n`;
+          temp += `tunnel encap ipsec\n`;
+          temp += `color private2\n`;
+          temp += `! \n`;
+          temp += `int ge0/2 \n`;
+          temp += `ip address ${getdevicedata.g_02} \n`;
+          temp += `no shutdown\n`;
+          temp += `tunnel encap ipsec\n`;
+          temp += `color private3\n`;
+          temp += `! \n`;
+          temp += `! \n`;
+          const ip1 = getdevicedata.g_01.split("/")[0];
+          const octet1 = ip1.split(".");
 
-        const ip2 = getdevicedata.g_02.split("/")[0];
-        const octet2 = ip2.split(".");
+          const ip2 = getdevicedata.g_02.split("/")[0];
+          const octet2 = ip2.split(".");
 
-        temp += `ip route 0.0.0.0 0.0.0.0 ${
-          octet1[0]
-        }.${octet1[1]}.${octet1[2]}.${Number(octet1[3]) - 5}\n`;
+          temp += `ip route 0.0.0.0 0.0.0.0 ${
+            octet1[0]
+          }.${octet1[1]}.${octet1[2]}.${Number(octet1[3]) - 5}\n`;
 
-        temp += `ip route 0.0.0.0 0.0.0.0 ${
-          octet2[0]
-        }.${octet2[1]}.${octet2[2]}.${Number(octet2[3]) - 5}\n`;
-        temp += `! \n`;
-        temp += `! \n`;
+          temp += `ip route 0.0.0.0 0.0.0.0 ${
+            octet2[0]
+          }.${octet2[1]}.${octet2[2]}.${Number(octet2[3]) - 5}\n`;
+          temp += `! \n`;
+          temp += `! \n`;
+        }
       }
-    }
+    } catch (e) {}
     setPreconfigText(temp);
-    setTargetDevice(d);
-    setShowSwapTargetModal(false);
-    setShowPreconfigModal(true);
   };
 
-  const handleManualSerialConfirm = async () => {
+  const handleConfirmWithDevice = (d: Device) => {
+    setTargetDevice(d);
+  };
+
+  const handleManualSerialConfirm = () => {
     const trimmed = manualSerial.trim();
     if (!trimmed) {
       setManualSerialError("Serial number is required.");
@@ -536,7 +537,7 @@ function DeviceDashboard({
       reachable: "unreachable",
       status: "—",
     };
-    await handleConfirmWithDevice(manualDevice);
+    handleConfirmWithDevice(manualDevice);
   };
 
   const handleSwapNow = async () => {
@@ -586,6 +587,7 @@ function DeviceDashboard({
           );
           setTimeout(() => {
             setSwapSuccess(false);
+            setShowSwapTargetModal(false);
             setShowPreconfigModal(false);
             setSelectedDevice(null);
             setTargetDevice(null);
@@ -714,12 +716,7 @@ function DeviceDashboard({
   };
 
   const handleSwapButtonClick = () => {
-    if (!vmanageCreds) {
-      setNeedsLoginBeforeSwap(true);
-      onRequestVManageLogin();
-    } else {
-      setShowSwapModal(true);
-    }
+    setShowSwapModal(true);
   };
 
   return (
@@ -917,10 +914,11 @@ function DeviceDashboard({
                       </span>
                       <button
                         className={styles.swapItemActionBtn}
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
                           setSelectedDevice(d);
                           setShowSwapModal(false);
+                          await fetchConfig(d.hostname);
                           setShowSwapTargetModal(true);
                         }}
                       >
@@ -1015,6 +1013,53 @@ function DeviceDashboard({
               </div>
             )}
 
+            {preconfigText && (
+              <div style={{ padding: "14px 20px 0", flexShrink: 0 }}>
+                <div className={styles.preconfigCmdLabel} style={{ marginBottom: "8px" }}>Current Configure</div>
+                <div className={styles.preconfigCmdWrap}>
+                  <div className={styles.preconfigCmdBar}>
+                    <div className={styles.preconfigCmdDots}>
+                      <div className={styles.preconfigCmdDot} style={{ background: "#FF5F57" }} />
+                      <div className={styles.preconfigCmdDot} style={{ background: "#FFBD2E" }} />
+                      <div className={styles.preconfigCmdDot} style={{ background: "#28CA41" }} />
+                    </div>
+                    <button
+                      className={styles.preconfigCmdCopy}
+                      onClick={() => navigator.clipboard.writeText(preconfigText)}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <div className={styles.preconfigCmdBody}>
+                    <textarea
+                      value={preconfigText}
+                      readOnly
+                      spellCheck={false}
+                      style={{
+                        width: "100%",
+                        minHeight: "120px",
+                        height: "150px",
+                        fontFamily: "'DM Mono', monospace",
+                        fontSize: "12px",
+                        lineHeight: "1.7",
+                        background: "transparent",
+                        color: "#C8F0D0",
+                        border: "none",
+                        outline: "none",
+                        resize: "vertical",
+                        padding: "0",
+                        overflowY: "auto",
+                        boxSizing: "border-box",
+                        display: "block",
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!targetDevice ? (
+              <>
             <div
               style={{
                 display: "flex",
@@ -1211,7 +1256,7 @@ function DeviceDashboard({
                           strokeLinejoin="round"
                         />
                       </svg>
-                      Confirm
+                      Select
                     </button>
                   </div>
                   {manualSerialError && (
@@ -1473,12 +1518,12 @@ function DeviceDashboard({
                           </span>
                           <button
                             className={styles.swapItemActionBtn}
-                            onClick={async (e) => {
+                            onClick={(e) => {
                               e.stopPropagation();
-                              await handleConfirmWithDevice(d);
+                              handleConfirmWithDevice(d);
                             }}
                           >
-                            Confirm
+                            Select
                           </button>
                         </div>
                       </div>
@@ -1486,6 +1531,73 @@ function DeviceDashboard({
                   )}
                 </div>
               </>
+            )}
+            </>
+            ) : (
+              <div style={{ padding: "14px 20px 20px" }}>
+                <div className={styles.swapTargetFrom} style={{ marginBottom: "16px" }}>
+                  <span className={styles.swapTargetFromLabel}>To</span>
+                  <span className={styles.swapTargetFromArrow}>→</span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "2px", flex: 1 }}>
+                    <span className={styles.swapTargetFromHostname}>{targetDevice.hostname}</span>
+                    <span className={styles.swapTargetFromIp}>{targetDevice.systemIp}</span>
+                    <span style={{ fontSize: "11px", color: "var(--theme-text-muted)" }}>{targetDevice.serial ?? "—"}</span>
+                  </div>
+                </div>
+                
+                {swapError && (
+                  <div style={{ marginBottom: "16px", padding: "10px", borderRadius: "8px", background: "rgba(255,68,85,0.1)", border: "1px solid var(--theme-accent-red)", color: "var(--theme-accent-red)", fontSize: "12px" }}>
+                    {swapError}
+                  </div>
+                )}
+                
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                  <button
+                    onClick={() => {
+                      setShowSwapTargetModal(false);
+                      setTargetDevice(null);
+                      setSelectedDevice(null);
+                      setSwapError(null);
+                    }}
+                    disabled={isSwapping || swapSuccess}
+                    style={{
+                      padding: "9px 20px",
+                      borderRadius: "100px",
+                      border: "1px solid var(--theme-border-strong)",
+                      background: "transparent",
+                      color: "var(--theme-text-primary)",
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={handleSwapNow}
+                    disabled={isSwapping || swapSuccess}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "7px",
+                      padding: "9px 20px",
+                      borderRadius: "100px",
+                      border: "none",
+                      background: swapSuccess ? "var(--theme-accent-green)" : "linear-gradient(135deg, var(--theme-accent-green), var(--theme-accent-light))",
+                      color: "var(--theme-on-accent)",
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: isSwapping || swapSuccess ? "not-allowed" : "pointer",
+                      opacity: isSwapping ? 0.75 : 1,
+                      boxShadow: "0 0 14px var(--theme-accent-glow)",
+                    }}
+                  >
+                    {isSwapping ? "Proceeding..." : swapSuccess ? "Done!" : "invalid new device & push to controller (step1/3)"}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
