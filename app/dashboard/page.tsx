@@ -2191,10 +2191,11 @@ function DeviceDashboard({
                 <col style={{ width: "12%" }} />
                 <col style={{ width: "8%" }} />
                 <col style={{ width: "9%" }} />
-                <col style={{ width: "11%" }} />
-                <col style={{ width: "11%" }} />
-                <col style={{ width: "11%" }} />
                 <col style={{ width: "10%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "5%" }} />
               </colgroup>
               <thead>
                 <tr>
@@ -2208,8 +2209,9 @@ function DeviceDashboard({
                     "ge0/1 IP",
                     "ge0/2 IP",
                     "Status",
-                  ].map((h) => (
-                    <th key={h}>{h}</th>
+                    "",
+                  ].map((h, i) => (
+                    <th key={i}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -2280,6 +2282,42 @@ function DeviceDashboard({
                           />
                           {d.reachable === "reachable" ? "Up" : "Down"}
                         </span>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <button
+                          onClick={async () => {
+                            setSelectedDevice(d);
+                            setShowSwapTargetModal(true);
+                            setPreconfigText("");
+                            await fetchConfig(d.hostname);
+                          }}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            color: "var(--theme-text-muted)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: "4px",
+                            borderRadius: "6px",
+                            transition: "all 0.2s ease"
+                          }}
+                          title="Swap Device"
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.color = "var(--theme-on-accent)";
+                            e.currentTarget.style.background = "var(--theme-accent-green)";
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.color = "var(--theme-text-muted)";
+                            e.currentTarget.style.background = "transparent";
+                          }}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        </button>
                       </td>
                     </tr>
                   ))
