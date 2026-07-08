@@ -417,6 +417,18 @@ function DeviceDashboard({
   const filtered =
     filter === "all" ? devices : devices.filter((d) => d.reachable === filter);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 100;
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paginatedDevices = filtered.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
+
   const swapFiltered = devices
     .filter((d) => matchesSearch(d, swapQuery))
     .sort((a, b) => {
@@ -632,9 +644,8 @@ function DeviceDashboard({
       if (swapStep === 3) {
         // Step 3: delete wan edge
         try {
-          // Attempting to call delete device API if it exists, otherwise just pass
-          await axios.post(
-            `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/deletedevice`,
+          const deleteResponse = await axios.post(
+            `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/deletevedge`,
             {
               uuid: selectedDevice.serial,
               ip: vmanageCreds.ip,
@@ -643,8 +654,12 @@ function DeviceDashboard({
             },
             { validateStatus: () => true }
           );
+
+          if (deleteResponse.status !== 200) {
+            console.log("Delete device step failed or unsupported", deleteResponse.data);
+          }
         } catch (e) {
-          console.log("Delete device step failed or unsupported", e);
+          console.log("Delete device request error", e);
         }
 
         setSwapSuccess(true);
@@ -2329,7 +2344,7 @@ function DeviceDashboard({
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((d, idx) => (
+                  paginatedDevices.map((d, idx) => (
                     <tr key={idx}>
                       <td style={{ fontWeight: 500 }}>{d.hostname}</td>
                       <td
@@ -2421,6 +2436,33 @@ function DeviceDashboard({
               </tbody>
             </table>
           </div>
+
+          {totalPages > 1 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", borderTop: "1px solid var(--theme-border)", fontSize: "12px", color: "var(--theme-text-muted)", fontFamily: "'DM Sans', sans-serif" }}>
+              <div>
+                Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length} entries
+              </div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  style={{ padding: "6px 12px", borderRadius: "6px", border: "1px solid var(--theme-border)", background: "var(--theme-bg-secondary)", color: currentPage === 1 ? "var(--theme-text-muted)" : "var(--theme-text-primary)", cursor: currentPage === 1 ? "not-allowed" : "pointer" }}
+                >
+                  Previous
+                </button>
+                <div style={{ display: "flex", alignItems: "center", padding: "0 8px", fontWeight: 600 }}>
+                  Page {currentPage} of {totalPages}
+                </div>
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  style={{ padding: "6px 12px", borderRadius: "6px", border: "1px solid var(--theme-border)", background: "var(--theme-bg-secondary)", color: currentPage === totalPages ? "var(--theme-text-muted)" : "var(--theme-text-primary)", cursor: currentPage === totalPages ? "not-allowed" : "pointer" }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>
