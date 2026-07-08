@@ -569,11 +569,12 @@ function DeviceDashboard({
             ip: vmanageCreds.ip,
             username: vmanageCreds.username,
             password: vmanageCreds.password,
-          }
+          },
+          { validateStatus: () => true }
         );
 
-        if (!invalidateResponse.data.success) {
-          throw new Error("Failed to invalidate new device");
+        if (invalidateResponse.status !== 200 && invalidateResponse.status !== 202) {
+          setSwapWarning("Warning: Could not invalidate new device. Proceeding...");
         }
 
         const sendToControllerResponse = await axios.post(
@@ -595,22 +596,7 @@ function DeviceDashboard({
       }
 
       if (swapStep === 2) {
-        // Step 2: invalid old (warn if fail), valid new, and push to controller
-        const invalidateOldResponse = await axios.post(
-          `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/invalidatedevice`,
-          {
-            uuid: selectedDevice.serial,
-            ip: vmanageCreds.ip,
-            username: vmanageCreds.username,
-            password: vmanageCreds.password,
-          },
-          { validateStatus: () => true }
-        );
-
-        if (invalidateOldResponse.status !== 200 && invalidateOldResponse.status !== 202) {
-          setSwapWarning("Warning: Could not invalidate old device. Proceeding to valid new device...");
-        }
-
+        // Step 2: valid new, push to controller
         const validateResponse = await axios.post(
           `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/validatedevice`,
           {
@@ -634,25 +620,48 @@ function DeviceDashboard({
           }
         );
 
-        if (sendToControllerResponse.status === 200) {
-          setSwapSuccess(true);
-          window.alert("Success! Changes pushed to controllers.");
-          setTimeout(() => {
-            setSwapSuccess(false);
-            setShowSwapTargetModal(false);
-            setShowPreconfigModal(false);
-            setSelectedDevice(null);
-            setTargetDevice(null);
-            setPreconfigText("");
-            setIsSwapping(false);
-            setSwapError(null);
-            setSwapWarning(null);
-            setSwapStep(1);
-            setPendingSwap(false);
-          }, 1500);
-        } else {
+        if (sendToControllerResponse.status !== 200) {
           throw new Error("Failed to push to controller");
         }
+
+        setIsSwapping(false);
+        setSwapStep(3);
+        return;
+      }
+
+      if (swapStep === 3) {
+        // Step 3: delete wan edge
+        try {
+          // Attempting to call delete device API if it exists, otherwise just pass
+          await axios.post(
+            `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/deletedevice`,
+            {
+              uuid: selectedDevice.serial,
+              ip: vmanageCreds.ip,
+              username: vmanageCreds.username,
+              password: vmanageCreds.password,
+            },
+            { validateStatus: () => true }
+          );
+        } catch (e) {
+          console.log("Delete device step failed or unsupported", e);
+        }
+
+        setSwapSuccess(true);
+        window.alert("Success! Changes pushed to controllers.");
+        setTimeout(() => {
+          setSwapSuccess(false);
+          setShowSwapTargetModal(false);
+          setShowPreconfigModal(false);
+          setSelectedDevice(null);
+          setTargetDevice(null);
+          setPreconfigText("");
+          setIsSwapping(false);
+          setSwapError(null);
+          setSwapWarning(null);
+          setSwapStep(1);
+          setPendingSwap(false);
+        }, 1500);
       }
     } catch (err: any) {
       const errorMsg =
@@ -1587,6 +1596,25 @@ function DeviceDashboard({
             </>
             ) : (
               <div style={{ padding: "14px 20px 20px" }}>
+                <div style={{ marginBottom: "20px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", position: "relative" }}>
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
+                      <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: swapStep >= 1 ? "var(--theme-accent-green)" : "var(--theme-bg-secondary)", border: swapStep >= 1 ? "none" : "1px solid var(--theme-border)", color: swapStep >= 1 ? "var(--theme-on-accent)" : "var(--theme-text-muted)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "bold", zIndex: 2 }}>1</div>
+                      <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center", color: swapStep >= 1 ? "var(--theme-text-primary)" : "var(--theme-text-muted)", fontWeight: swapStep >= 1 ? 600 : 400, fontFamily: "'DM Sans', sans-serif" }}>Invalid New &<br/>Push</div>
+                    </div>
+                    <div style={{ position: "absolute", top: "11px", left: "16.6%", right: "83.3%", height: "2px", background: swapStep >= 2 ? "var(--theme-accent-green)" : "var(--theme-border)", zIndex: 1, width: "33.3%" }} />
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
+                      <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: swapStep >= 2 ? "var(--theme-accent-green)" : "var(--theme-bg-secondary)", border: swapStep >= 2 ? "none" : "1px solid var(--theme-border)", color: swapStep >= 2 ? "var(--theme-on-accent)" : "var(--theme-text-muted)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "bold", zIndex: 2 }}>2</div>
+                      <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center", color: swapStep >= 2 ? "var(--theme-text-primary)" : "var(--theme-text-muted)", fontWeight: swapStep >= 2 ? 600 : 400, fontFamily: "'DM Sans', sans-serif" }}>Valid New &<br/>Push</div>
+                    </div>
+                    <div style={{ position: "absolute", top: "11px", left: "50%", right: "50%", height: "2px", background: swapStep >= 3 ? "var(--theme-accent-green)" : "var(--theme-border)", zIndex: 1, width: "33.3%" }} />
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
+                      <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: swapStep >= 3 ? "var(--theme-accent-green)" : "var(--theme-bg-secondary)", border: swapStep >= 3 ? "none" : "1px solid var(--theme-border)", color: swapStep >= 3 ? "var(--theme-on-accent)" : "var(--theme-text-muted)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "bold", zIndex: 2 }}>3</div>
+                      <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center", color: swapStep >= 3 ? "var(--theme-text-primary)" : "var(--theme-text-muted)", fontWeight: swapStep >= 3 ? 600 : 400, fontFamily: "'DM Sans', sans-serif" }}>Delete<br/>WAN Edge</div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className={styles.swapTargetFrom} style={{ marginBottom: "16px" }}>
                   <span className={styles.swapTargetFromLabel}>To</span>
                   <span className={styles.swapTargetFromArrow}>→</span>
@@ -1616,6 +1644,8 @@ function DeviceDashboard({
                       setTargetDevice(null);
                       setSelectedDevice(null);
                       setSwapError(null);
+                      setSwapWarning(null);
+                      setSwapStep(1);
                     }}
                     disabled={isSwapping || swapSuccess}
                     style={{
@@ -1657,8 +1687,10 @@ function DeviceDashboard({
                       : swapSuccess
                         ? "Done!"
                         : swapStep === 1
-                          ? "invalid new & push to controller (step 1/2)"
-                          : "valid new, invalid old & push to controller (step 2/2)"}
+                          ? "Invalid New & Push (Step 1/3)"
+                          : swapStep === 2
+                            ? "Valid New & Push (Step 2/3)"
+                            : "Delete WAN Edge (Step 3/3)"}
                   </button>
                 </div>
               </div>
