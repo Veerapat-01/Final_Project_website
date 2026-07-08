@@ -1,22 +1,12 @@
-import axios from "axios";
-import https from "https";
 import { NextResponse } from "next/server";
+import { VManageClient } from "@/lib/VManageClient";
 
 export async function POST(request) {
   try {
-    const { ip, deviceId, cookie } = await request.json();
+    const { ip, username, password, deviceId } = await request.json();
+    const client = new VManageClient(ip, username, password);
 
-    const response = await axios.get(
-      `https://${ip}/dataservice/device/interface?deviceId=${deviceId}`,
-      {
-        httpsAgent: new https.Agent({
-          rejectUnauthorized: false,
-        }),
-        headers: {
-          Cookie: cookie,
-        },
-      },
-    );
+    const response = await client.request('GET', `/dataservice/device/interface?deviceId=${deviceId}`);
 
     return NextResponse.json({
       success: true,
@@ -26,12 +16,11 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.response?.data || error.message || "Failed to get interfaces",
+        error: error.message || "Failed to get interfaces",
       },
       {
-        status: error.response?.status || 500,
-      },
+        status: 500,
+      }
     );
   }
 }

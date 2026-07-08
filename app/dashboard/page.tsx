@@ -656,10 +656,10 @@ function DeviceDashboard({
           );
 
           if (deleteResponse.status !== 200) {
-            console.log("Delete device step failed or unsupported", deleteResponse.data);
+            console.error("Delete device step failed or unsupported", deleteResponse.data);
           }
         } catch (e) {
-          console.log("Delete device request error", e);
+          console.error("Delete device request error", e);
         }
 
         setSwapSuccess(true);
@@ -2641,7 +2641,6 @@ function DashboardContent() {
             }
 
             setEmail(dec);
-            console.log("Decrypted email:", dec);
           } else {
             setAuthError(
               "User not found or invalid credentials. Redirecting to login...",
@@ -2746,7 +2745,7 @@ function DashboardContent() {
 
       const deviceResponse = await axios.post(
         `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/deviceVmanage`,
-        { ip: credentials.ip, cookie: authenResponse.data.cookie },
+        { ip: credentials.ip, username: credentials.username, password: credentials.password },
       );
 
       if (deviceResponse.status === 200) {
@@ -2802,8 +2801,9 @@ function DashboardContent() {
                 `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/getInterfaces`,
                 {
                   ip: credentials.ip,
+                  username: credentials.username,
+                  password: credentials.password,
                   deviceId: deviceIds[i],
-                  cookie: authenResponse.data.cookie,
                 },
               );
 
@@ -2911,7 +2911,7 @@ function DashboardContent() {
 
       const deviceResponse = await axios.post(
         `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/deviceVmanage`,
-        { ip: vmanageCreds.ip, cookie: authenResponse.data.cookie },
+        { ip: vmanageCreds.ip, username: vmanageCreds.username, password: vmanageCreds.password },
       );
 
       if (deviceResponse.status !== 200) return;
@@ -2961,8 +2961,9 @@ function DashboardContent() {
               `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/getInterfaces`,
               {
                 ip: vmanageCreds.ip,
+                username: vmanageCreds.username,
+                password: vmanageCreds.password,
                 deviceId: deviceIds[i],
-                cookie: authenResponse.data.cookie,
               },
             );
 

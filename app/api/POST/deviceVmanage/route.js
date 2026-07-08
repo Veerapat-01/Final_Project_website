@@ -1,19 +1,12 @@
-import axios from "axios";
-import https from "https";
 import { NextResponse } from "next/server";
+import { VManageClient } from "@/lib/VManageClient";
 
 export async function POST(request) {
   try {
-    const { ip, cookie } = await request.json();
+    const { ip, username, password } = await request.json();
+    const client = new VManageClient(ip, username, password);
 
-    const response = await axios.get(`https://${ip}/dataservice/device`, {
-      headers: {
-        Cookie: Array.isArray(cookie) ? cookie.join("; ") : cookie,
-      },
-      httpsAgent: new https.Agent({
-        rejectUnauthorized: false,
-      }),
-    });
+    const response = await client.request('GET', `/dataservice/device`);
 
     return NextResponse.json({
       success: true,
@@ -27,7 +20,7 @@ export async function POST(request) {
       },
       {
         status: 500,
-      },
+      }
     );
   }
 }
