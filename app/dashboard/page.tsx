@@ -608,7 +608,22 @@ function DeviceDashboard({
       }
 
       if (swapStep === 2) {
-        // Step 2: valid new, push to controller
+        // Step 2: invalid old, valid new, push to controller
+        const invalidateOldResponse = await axios.post(
+          `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/invalidatedevice`,
+          {
+            uuid: selectedDevice.serial,
+            ip: vmanageCreds.ip,
+            username: vmanageCreds.username,
+            password: vmanageCreds.password,
+          },
+          { validateStatus: () => true }
+        );
+
+        if (invalidateOldResponse.status !== 200 && invalidateOldResponse.status !== 202) {
+          setSwapWarning("Warning: Could not invalidate old device. Proceeding...");
+        }
+
         const validateResponse = await axios.post(
           `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/validatedevice`,
           {
