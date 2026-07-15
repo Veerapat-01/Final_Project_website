@@ -9,6 +9,34 @@ import { cn } from "@/lib/utils";
 import axios from "axios";
 import Script from "next/script";
 import styles from "./dashboard.module.css";
+function getGatewayIp(ipWithCidr: string) {
+  try {
+    const [ip, prefixStr] = ipWithCidr.split("/");
+    const prefix = parseInt(prefixStr, 10);
+    const octets = ip.split(".").map(Number);
+    
+    // แปลง IP เป็นตัวเลข 32-bit
+    const ipNum = (octets[0] << 24) >>> 0 | (octets[1] << 16) | (octets[2] << 8) | octets[3];
+    // สร้าง Netmask จากค่า CIDR Prefix
+    const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
+    // หาเลขไอพีเริ่มต้นของเน็ตเวิร์ก (Network IP)
+    const netNum = (ipNum & mask) >>> 0;
+    // เกตเวย์หลักคือ ไอพีตัวแรกของวงย่อยย่อย (Network IP + 1)
+    const gwNum = netNum + 1;
+    
+    // แปลงเลข 32-bit กลับมาเป็นชุด IP String ในรูปแบบ x.x.x.x
+    const gwOctets = [
+      (gwNum >>> 24) & 255,
+      (gwNum >>> 16) & 255,
+      (gwNum >>> 8) & 255,
+      gwNum & 255
+    ];
+    return gwOctets.join(".");
+  } catch (err: any) {
+    console.error("Error calculating gateway IP:", err.message);
+    return null;
+  }
+}
 
 interface Device {
   hostname: string;
@@ -507,19 +535,15 @@ function DeviceDashboard({
           temp += `color private3\n`;
           temp += `! \n`;
           temp += `! \n`;
-          const ip1 = getdevicedata.g_01.split("/")[0];
-          const octet1 = ip1.split(".");
+          const gw1 = getGatewayIp(getdevicedata.g_01);
+          if (gw1) {
+            temp += `ip route 0.0.0.0 0.0.0.0 ${gw1}\n`;
+          }
 
-          const ip2 = getdevicedata.g_02.split("/")[0];
-          const octet2 = ip2.split(".");
-
-          temp += `ip route 0.0.0.0 0.0.0.0 ${
-            octet1[0]
-          }.${octet1[1]}.${octet1[2]}.${Number(octet1[3]) - 5}\n`;
-
-          temp += `ip route 0.0.0.0 0.0.0.0 ${
-            octet2[0]
-          }.${octet2[1]}.${octet2[2]}.${Number(octet2[3]) - 5}\n`;
+          const gw2 = getGatewayIp(getdevicedata.g_02);
+          if (gw2) {
+            temp += `ip route 0.0.0.0 0.0.0.0 ${gw2}\n`;
+          }
           temp += `! \n`;
           temp += `! \n`;
         }
