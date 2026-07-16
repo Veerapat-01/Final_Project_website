@@ -2,7 +2,11 @@
 
 import crypto from "crypto";
 
-const SECRET_KEY = process.env.NEXT_PUBLIC_SECRET_KEY || "12345678901234567890123456789012";
+const ALGORITHM = "aes-256-cbc";
+const SECRET_KEY = process.env.SECRET_KEY;
+if (!SECRET_KEY) {
+  throw new Error("SECRET_KEY is not defined in environment variables");
+}
 // Ensure key is exactly 32 bytes for aes-256-cbc
 const getKey = () => {
   let key = SECRET_KEY;

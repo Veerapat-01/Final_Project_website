@@ -111,20 +111,14 @@ export default function Page() {
     setLoading(true);
     try {
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/getlogin`,
+        "/api/POST/getlogin",
         { email, password },
       );
-      if (response.status === 200) {
-        const data = response.data[0];
-        if (data.staff_email === email && data.staff_password === password) {
-          setToast("success");
-          const encryptedEmail = await encrypt(email);
-          setTimeout(() => {
-            router.push(`/dashboard?email=${encodeURIComponent(encryptedEmail)}`);
-          }, 2000);
-        } else {
-          setToast("error");
-        }
+      if (response.status === 200 && response.data.success) {
+        setToast("success");
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 2000);
       } else {
         setToast("error");
       }

@@ -211,93 +211,47 @@ function SecurityContent() {
       .catch(console.error);
   }, []);
 
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const encryptedEmail = searchParams?.get("email");
   const [authError, setAuthError] = useState("");
 
   useEffect(() => {
-    if (!encryptedEmail) {
-      setAuthError("No authentication token provided. Redirecting to login...");
-      setTimeout(() => router.push("/"), 3000);
-      return;
-    }
+    axios
+      .get("/api/GET/me", { withCredentials: true })
+      .then((response) => {
+        if (response.status === 200 && response.data.user) {
+          const data = response.data.user;
+          const userRole = (
+            data.role ||
+            data.roles ||
+            data.staff_role ||
+            data["staff dept"] ||
+            ""
+          ).toLowerCase();
 
-    decrypt(encryptedEmail)
-      .then(async (dec) => {
-        if (!dec) {
-          setAuthError("Invalid encryption token. Redirecting to login...");
-          setTimeout(() => router.push("/"), 3000);
-          return;
-        }
-
-        try {
-          const response = await axios.post(
-            `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/getlogin`,
-            {
-              email: dec,
-            },
-          );
-
-          if (
-            response.status === 200 &&
-            response.data &&
-            response.data.length > 0
-          ) {
-            const data = response.data[0];
-
-            if (data.staff_email !== dec) {
-              setAuthError("Email mismatch. Redirecting to login...");
-              setTimeout(() => router.push("/"), 3000);
-              return;
-            }
-
-            const userRole = (
-              data.role ||
-              data.roles ||
-              data.staff_role ||
-              data["staff dept"] ||
-              ""
-            ).toLowerCase();
-            if (userRole === "suspend" || userRole === "suspended") {
-              setAuthError(
-                "Your account has been suspended. Please contact support.",
-              );
-              setTimeout(() => router.push("/"), 3000);
-              return;
-            }
-
-            if (userRole !== "admin") {
-              setAuthError(
-                "Access Denied. Security center is restricted to Administrators.",
-              );
-              setTimeout(
-                () =>
-                  router.push("/dashboard?email=" + encodeURIComponent(dec)),
-                3000,
-              );
-              return;
-            }
-
-            // Successfully authenticated
-          } else {
-            setAuthError(
-              "User not found or invalid credentials. Redirecting to login...",
-            );
+          if (userRole === "suspend" || userRole === "suspended") {
+            setAuthError("Your account has been suspended. Please contact support.");
             setTimeout(() => router.push("/"), 3000);
+            return;
           }
-        } catch (error) {
-          console.error(error);
-          setAuthError("Failed to authenticate user. Redirecting to login...");
+
+          if (userRole !== "admin") {
+            setAuthError("Access Denied. Security center is restricted to Administrators.");
+            setTimeout(() => router.push("/dashboard"), 3000);
+            return;
+          }
+
+          // Successfully authenticated
+        } else {
+          setAuthError(`Auth Failed: Missing user data in response. Status: ${response.status}`);
           setTimeout(() => router.push("/"), 3000);
         }
       })
       .catch((error) => {
-        console.error(error);
-        setAuthError("Authentication error. Redirecting to login...");
+        console.error("Auth error", error);
+        setAuthError(`Authentication error: ${error.response?.data?.error || error.message}. Redirecting to login...`);
         setTimeout(() => router.push("/"), 3000);
       });
-  }, [encryptedEmail, router]);
+  }, [router]);
 
   // ── Reset dark theme set by dashboard ──
   useEffect(() => {
@@ -448,15 +402,32 @@ function SecurityContent() {
   }
 
   // ── Confirm delete ──
-  function handleDelete() {
+  async function handleDelete() {
     if (!deletingUser) return;
-    setUsers((prev) => prev.filter((u) => u.id !== deletingUser.id));
-    setDeletingUser(null);
+    try {
+      const res = await axios.delete("/api/DELETE/deleteuser", {
+        data: { id: deletingUser.id, email: deletingUser.email },
+        withCredentials: true
+      });
+      if (res.status === 200) {
+        setUsers((prev) => prev.filter((u) => u.id !== deletingUser.id));
+      } else {
+        alert("Failed to delete user");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error deleting user");
+    } finally {
+      setDeletingUser(null);
+    }
+  }
+
+  if (authError) {
+    return <AuthErrorModal message={authError} />;
   }
 
   return (
     <div className="flex min-h-screen" style={{ background: "#f5f6fa" }}>
-      {authError && <AuthErrorModal message={authError} />}
 
       {/* Sidebar */}
       <div className="hidden lg:block">

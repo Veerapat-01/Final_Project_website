@@ -13,6 +13,15 @@ export async function POST(request) {
       cookie: [client.sessionCookie],
     });
   } catch (error) {
+    console.error("VManage Auth Error:", error);
+    
+    if (error.message.includes("SSRF Blocked")) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden: Invalid IP Address" },
+        { status: 403 }
+      );
+    }
+    
     return NextResponse.json(
       {
         success: false,

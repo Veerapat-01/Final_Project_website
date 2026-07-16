@@ -7,8 +7,11 @@ import { Sidebar } from "@/components/dashboard/sidebar";
 import { VManageConnectionModal } from "@/components/dashboard/vmanage-connection-modal";
 import { cn } from "@/lib/utils";
 import axios from "axios";
-import Script from "next/script";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+import { Doughnut } from "react-chartjs-2";
 import styles from "./dashboard.module.css";
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 function getGatewayIp(ipWithCidr: string) {
   try {
     const [ip, prefixStr] = ipWithCidr.split("/");
@@ -407,8 +410,7 @@ function DeviceDashboard({
   onRequestVManageLogin: () => void;
   isRefreshing?: boolean;
 }) {
-  const donutRef = useRef<HTMLCanvasElement>(null);
-  const chartInstanceRef = useRef<any>(null);
+
   const [filter, setFilter] = useState<"all" | "reachable" | "unreachable">(
     "all",
   );
@@ -548,7 +550,9 @@ function DeviceDashboard({
           temp += `! \n`;
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Error generating config:", e);
+    }
     setPreconfigText(temp);
   };
 
@@ -696,9 +700,13 @@ function DeviceDashboard({
 
           if (deleteResponse.status !== 200) {
             console.error("Delete device step failed or unsupported", deleteResponse.data);
+            throw new Error("Failed to delete old device");
           }
         } catch (e) {
           console.error("Delete device request error", e);
+          setSwapError("Error: Failed to delete old device from controller. Manual cleanup may be required.");
+          setIsSwapping(false);
+          return;
         }
 
         setSwapSuccess(true);
@@ -741,30 +749,22 @@ function DeviceDashboard({
     }
   }, [vmanageCreds, needsLoginBeforeSwap]);
 
-  useEffect(() => {
-    if (!donutRef.current) return;
-    const Chart = (window as any).Chart;
-    if (!Chart) return;
-    if (chartInstanceRef.current) chartInstanceRef.current.destroy();
-    chartInstanceRef.current = new Chart(donutRef.current.getContext("2d"), {
-      type: "doughnut",
-      data: {
-        datasets: [
-          {
-            data: [reach || 0, unreach || 1],
-            backgroundColor: [accentGreen, accentRed],
-            borderWidth: 0,
-            hoverOffset: 4,
-          },
-        ],
+  const chartData = {
+    datasets: [
+      {
+        data: [reach || 0, unreach || (total === 0 ? 1 : 0)],
+        backgroundColor: [accentGreen, accentRed],
+        borderWidth: 0,
+        hoverOffset: 4,
       },
-      options: {
-        responsive: false,
-        cutout: "68%",
-        plugins: { legend: { display: false }, tooltip: { enabled: true } },
-      },
-    });
-  }, [reach, unreach, isDark]);
+    ],
+  };
+
+  const chartOptions = {
+    responsive: false,
+    cutout: "68%",
+    plugins: { legend: { display: false }, tooltip: { enabled: true } },
+  };
 
   useEffect(() => {
     if (showSwapModal) {
@@ -2152,8 +2152,9 @@ function DeviceDashboard({
                     }}
                   />
                 )}
-                <canvas
-                  ref={donutRef}
+                <Doughnut
+                  data={chartData}
+                  options={chartOptions}
                   width={160}
                   height={160}
                   role="img"
@@ -2621,83 +2622,42 @@ function DashboardContent() {
   const [isDark, setIsDark] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
   const [isLoadingDB, setIsLoadingDB] = useState(true);
+  const isFetchingRef = useRef(false);
 
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const encryptedEmail = searchParams?.get("email");
   const [email, setEmail] = useState("");
   const [authError, setAuthError] = useState("");
 
   useEffect(() => {
-    if (!encryptedEmail) {
-      setAuthError("No authentication token provided. Redirecting to login...");
-      setTimeout(() => router.push("/"), 3000);
-      return;
-    }
-
-    decrypt(encryptedEmail)
-      .then(async (dec) => {
-        if (!dec) {
-          setAuthError("Invalid encryption token. Redirecting to login...");
-          setTimeout(() => router.push("/"), 3000);
-          return;
-        }
-
-        try {
-          const response = await axios.post(
-            `${process.env.NEXT_PUBLIC_URL || ""}/api/POST/getlogin`,
-            {
-              email: dec,
-            },
-          );
-
-          if (
-            response.status === 200 &&
-            response.data &&
-            response.data.length > 0
-          ) {
-            const data = response.data[0];
-
-            if (data.staff_email !== dec) {
-              setAuthError("Email mismatch. Redirecting to login...");
-              setTimeout(() => router.push("/"), 3000);
-              return;
-            }
-
-            const userRole = (
-              data.role ||
-              data.roles ||
-              data.staff_role ||
-              data["staff dept"] ||
-              ""
-            ).toLowerCase();
-            if (userRole === "suspend" || userRole === "suspended") {
-              setAuthError(
-                "Your account has been suspended. Please contact support.",
-              );
-              setTimeout(() => router.push("/"), 3000);
-              return;
-            }
-
-            setEmail(dec);
-          } else {
-            setAuthError(
-              "User not found or invalid credentials. Redirecting to login...",
-            );
+    axios
+      .get("/api/GET/me", { withCredentials: true })
+      .then((response) => {
+        if (response.status === 200 && response.data.user) {
+          const data = response.data.user;
+          const userRole = (
+            data.role ||
+            data.roles ||
+            data.staff_role ||
+            data["staff dept"] ||
+            ""
+          ).toLowerCase();
+          if (userRole === "suspend" || userRole === "suspended") {
+            setAuthError("Your account has been suspended. Please contact support.");
             setTimeout(() => router.push("/"), 3000);
+            return;
           }
-        } catch (error) {
-          console.error(error);
-          setAuthError("Failed to authenticate user. Redirecting to login...");
+          setEmail(data.staff_email || "");
+        } else {
+          setAuthError(`Auth Failed: Missing user data in response. Status: ${response.status}`);
           setTimeout(() => router.push("/"), 3000);
         }
       })
       .catch((error) => {
-        console.error(error);
-        setAuthError("Authentication error. Redirecting to login...");
+        console.error("Auth error", error);
+        setAuthError(`Authentication error: ${error.response?.data?.error || error.message}. Redirecting to login...`);
         setTimeout(() => router.push("/"), 3000);
       });
-  }, [encryptedEmail, router]);
+  }, [router]);
   const [vmanageCreds, setVmanageCreds] = useState<VManageCreds | null>(null);
 
   const theme = isDark ? darkTheme : lightTheme;
@@ -2728,11 +2688,11 @@ function DashboardContent() {
   }, [isDark]);
 
   const loadDevicesFromDB = async (showLoading = false) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     try {
       if (showLoading) setIsLoadingDB(true);
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_URL || ""}/api/GET/alldevices`,
-      );
+      const res = await axios.get("/api/GET/alldevices");
       if (
         res.status === 200 &&
         Array.isArray(res.data) &&
@@ -2756,6 +2716,7 @@ function DashboardContent() {
     } catch (_) {
     } finally {
       if (showLoading) setIsLoadingDB(false);
+      isFetchingRef.current = false;
     }
   };
 
@@ -3082,6 +3043,10 @@ function DashboardContent() {
     }
   };
 
+  if (authError) {
+    return <AuthErrorModal message={authError} />;
+  }
+
   return (
     <div
       className="flex min-h-screen"
@@ -3090,12 +3055,6 @@ function DashboardContent() {
         transition: "background 0.4s ease",
       }}
     >
-      <Script
-        src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"
-        onLoad={() => setChartReady(true)}
-      />
-
-      {authError && <AuthErrorModal message={authError} />}
 
       {showModal && (
         <VManageConnectionModal

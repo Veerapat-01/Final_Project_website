@@ -14,7 +14,6 @@ const syne = Syne({ subsets: ["latin"], variable: "--font-syne", weight: ["400",
 export const metadata: Metadata = {
   title: "AIT ARC",
   description: "Automated Recovery Centre",
-  generator: "v0.app",
   icons: {
     icon: "/ait.png",
     apple: "/ait.png",
