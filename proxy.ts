@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
 const SECRET_KEY = process.env.SECRET_KEY || "fallback_secret_key";
@@ -6,7 +6,7 @@ const encodedSecret = new TextEncoder().encode(SECRET_KEY);
 
 const publicPaths = ['/', '/api/POST/getlogin'];
 
-export async function middleware(request) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (
@@ -31,7 +31,7 @@ export async function middleware(request) {
   try {
     const { payload } = await jwtVerify(token, encodedSecret);
     const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-user-email', payload.email);
+    requestHeaders.set('x-user-email', payload.email as string);
 
     return NextResponse.next({
       request: { headers: requestHeaders },
