@@ -8,3 +8,5 @@ node_modules/
 *.pdf
 *.zip
 *.json
+*.exe
+*.cs
