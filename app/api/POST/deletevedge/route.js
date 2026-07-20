@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { VManageClient } from "@/lib/VManageClient";
+import { pool } from "@/db";
 
 export async function POST(request) {
   try {
@@ -7,6 +8,9 @@ export async function POST(request) {
     const client = new VManageClient(ip, username, password);
 
     const data = await client.deleteWanEdge(uuid);
+
+    // Delete the old device from the local database
+    await pool.execute("DELETE FROM device_lists WHERE serial = ?", [uuid]);
 
     return NextResponse.json(
       {

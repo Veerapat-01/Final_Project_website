@@ -26,6 +26,16 @@ export async function POST(request) {
       g_02 = ipad2;
     }
 
+    // Check if device already exists with this hostname and serial
+    const [existing] = await pool.execute(
+      "SELECT * FROM device_lists WHERE hostname = ? AND serial = ?",
+      [hostname, serial]
+    );
+
+    if (existing.length > 0) {
+      return Response.json({ success: true, message: "Device already exists" });
+    }
+
     await pool.execute(
       `INSERT INTO device_lists (hostname, systemip, siteid, g_01, g_02, eth_0, reachable, roles, serial, validity)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
