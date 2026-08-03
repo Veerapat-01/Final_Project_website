@@ -8,6 +8,7 @@ export async function POST(request) {
       siteid,
       ipad1,
       ipad2,
+      eth0,
       deviceType,
       reachable,
       serial,
@@ -17,10 +18,10 @@ export async function POST(request) {
     const t = (deviceType ?? "").toLowerCase();
     let g_01 = null;
     let g_02 = null;
-    let eth_0 = null;
+    let eth_0 = eth0 ?? null;
 
     if (t === "vmanage" || t === "vsmart") {
-      eth_0 = ipad1;
+      if (!eth_0) eth_0 = ipad1;
     } else {
       g_01 = ipad1;
       g_02 = ipad2;
@@ -33,7 +34,12 @@ export async function POST(request) {
     );
 
     if (existing.length > 0) {
-      return Response.json({ success: true, message: "Device already exists" });
+      // If it exists, update its details (especially reachability) instead of ignoring
+      await pool.execute(
+        `UPDATE device_lists SET systemip = ?, siteid = ?, g_01 = ?, g_02 = ?, eth_0 = ?, reachable = ?, roles = ?, validity = ? WHERE hostname = ? AND serial = ?`,
+        [systemip, siteid, g_01, g_02, eth_0, reachable, deviceType, validity, hostname, serial]
+      );
+      return Response.json({ success: true, message: "Device updated" });
     }
 
     await pool.execute(
