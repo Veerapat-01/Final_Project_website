@@ -34,10 +34,15 @@ export async function POST(request) {
     );
 
     if (existing.length > 0) {
+      const old = existing[0];
+      const final_g_01 = g_01 ?? old.g_01;
+      const final_g_02 = g_02 ?? old.g_02;
+      const final_eth_0 = eth_0 ?? old.eth_0;
+
       // If it exists, update its details (especially reachability) instead of ignoring
       await pool.execute(
         `UPDATE device_lists SET systemip = ?, siteid = ?, g_01 = ?, g_02 = ?, eth_0 = ?, reachable = ?, roles = ?, validity = ? WHERE hostname = ? AND serial = ?`,
-        [systemip, siteid, g_01, g_02, eth_0, reachable, deviceType, validity, hostname, serial]
+        [systemip, siteid, final_g_01, final_g_02, final_eth_0, reachable, deviceType, validity, hostname, serial]
       );
       return Response.json({ success: true, message: "Device updated" });
     }
